@@ -11,16 +11,15 @@ BOT_TOKEN = os.getenv("BOT_TOKEN") or "8172517978:AAHkn3i8f_uYVb8GkN-kMB5GkNuLtN
 GROQ_API_KEY = os.getenv("GROQ_API_KEY") or "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"
 RENDER_EXTERNAL_HOSTNAME = os.getenv("RENDER_EXTERNAL_HOSTNAME")
 
-# Webhook URL
 if not RENDER_EXTERNAL_HOSTNAME:
     raise Exception("RENDER_EXTERNAL_HOSTNAME tidak ditemukan. Pastikan Render environment variable sudah di-set.")
 WEBHOOK_URL = f"https://{RENDER_EXTERNAL_HOSTNAME}/webhook"
 
-bot = telebot.TeleBot(BOT_TOKEN)
+bot = telebot.TeleBot(BOT_TOKEN, parse_mode="HTML")
 client = Groq(api_key=GROQ_API_KEY)
 app = Flask(__name__)
 
-# ========= SYSTEM PROMPT: MENTOR TRADING =========
+# ========== SYSTEM PROMPT ==========
 system_prompt = (
     "Kamu adalah asisten pribadi ahli trading berpengalaman lebih dari 10 tahun. "
     "Kuasai semua aspek trading crypto, forex, saham, dan komoditas. "
@@ -38,6 +37,20 @@ system_prompt = (
 # ========= TEXT HANDLER =========
 @bot.message_handler(func=lambda m: m.content_type == 'text')
 def handle_text(message):
+    chat_type = message.chat.type
+    bot_username = bot.get_me().username.lower()
+
+    # Jika pesan dari grup, hanya balas jika disebut atau dibalas
+    if chat_type in ["group", "supergroup"]:
+        is_mentioned = any(
+            entity.type == "mention" and message.text[entity.offset:entity.offset + entity.length].lower() == f"@{bot_username}"
+            for entity in message.entities or []
+        )
+        is_reply_to_bot = message.reply_to_message and message.reply_to_message.from_user.username == bot_username
+
+        if not (is_mentioned or is_reply_to_bot):
+            return  # Abaikan jika tidak disebut atau tidak dibalas
+
     try:
         user_input = message.text
         completion = client.chat.completions.create(
