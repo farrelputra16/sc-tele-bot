@@ -1,60 +1,87 @@
+import os
 import telebot
 import requests
-import os
+import base64
 from dotenv import load_dotenv
+from groq import Groq
 
-# Load environment variables
+# Load environment
 load_dotenv()
-BOT_TOKEN = os.getenv('BOT_TOKEN')
-GROQ_API_KEY = os.getenv('GROQ_API_KEY')
-GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 
-# Inisialisasi bot
+# Token dan API Key langsung di-hardcode (tidak direkomendasikan untuk produksi)
+BOT_TOKEN = "8172517978:AAHkn3i8f_uYVb8GkN-kMB5GkNuLtNSFkn0"
+GROQ_API_KEY = "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"
+
 bot = telebot.TeleBot(BOT_TOKEN)
+client = Groq(api_key=GROQ_API_KEY)
+BOT_USERNAME = bot.get_me().username  # otomatis ambil username bot
 
-@bot.message_handler(commands=['start'])
-def handle_start(message):
-    chat_id = message.chat.id
-    username = message.from_user.username or "Unknown"
-    bot.send_message(chat_id, f"Hi @{username}! Welcome to SC Analyzer Bot! Use /help for commands.")
+print("🤖 Bot is running...")
 
-@bot.message_handler(commands=['help'])
-def handle_help(message):
-    chat_id = message.chat.id
-    bot.send_message(chat_id, "This is a trading bot. Commands:\n/start - Start bot\n/help - Show help\nSay 'Ajarkan FVG' or 'Analyze H1 chart' for trading info.")
-
-@bot.message_handler(content_types=['text'])
-def handle_message(message):
-    chat_id = message.chat.id
-    user_message = message.text.lower()
-    username = message.from_user.username or "Unknown"
-
-    if 'ajarkan fvg' in user_message:
-        prompt = "Jelaskan Fair Value Gap (FVG) dalam trading secara singkat dalam bahasa Indonesia."
-    elif 'analyze h1 chart' in user_message:
-        prompt = "Analisis chart H1 untuk trading forex secara singkat dalam bahasa Indonesia."
-    else:
-        bot.send_message(chat_id, f"@{username}, say 'Ajarkan FVG' or 'Analyze H1 chart' for trading info!")
-        return
-
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {GROQ_API_KEY}",
-    }
-    payload = {
-        "model": "mixtral-8x7b-32768",
-        "messages": [{"role": "user", "content": prompt}],
-    }
-
+# ======== TEXT HANDLER (model: llama) ========
+@bot.message_handler(func=lambda message: message.content_type == "text")
+def handle_text(message):
     try:
-        response = requests.post(GROQ_URL, headers=headers, json=payload)
-        response.raise_for_status()
-        bot_response = response.json()["choices"][0]["message"]["content"]
-        formatted_response = f"@{username}, {bot_response}"
-        bot.send_message(chat_id, formatted_response)
-    except Exception as e:
-        bot.send_message(chat_id, f"@{username}, error: {str(e)}")
+        # Jika di grup, hanya respon jika di-mention
+        if message.chat.type in ["group", "supergroup"]:
+            if f"@{BOT_USERNAME}" not in message.text:
+                return  # jangan balas jika tidak di-mention
 
-# Jalankan bot
-print("Bot is running...")
+            # Hapus mention biar prompt bersih
+            user_input = message.text.replace(f"@{BOT_USERNAME}", "").strip()
+        else:
+            user_input = message.text  # private chat
+
+        completion = client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=[
+                {"role": "user", "content": user_input}
+            ],
+            temperature=1,
+            max_tokens=1024,
+        )
+        reply = completion.choices[0].message.content
+        bot.reply_to(message, reply)
+    except Exception as e:
+        bot.reply_to(message, f"❌ Error saat memproses teks:\n{str(e)}")
+
+# ======== PHOTO HANDLER (model: llama) ========
+@bot.message_handler(content_types=["photo"])
+def handle_photo(message):
+    try:
+        # Jika di grup, hanya respon jika caption-nya ada mention bot
+        if message.chat.type in ["group", "supergroup"]:
+            if not message.caption or f"@{BOT_USERNAME}" not in message.caption:
+                return  # jangan balas jika tidak di-mention
+
+            caption = message.caption.replace(f"@{BOT_USERNAME}", "").strip()
+        else:
+            caption = message.caption if message.caption else "Apa isi gambar ini?"
+
+        file_id = message.photo[-1].file_id
+        file_info = bot.get_file(file_id)
+        file_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_info.file_path}"
+
+        completion = client.chat.completions.create(
+            model="meta-llama/llama-4-scout-17b-16e-instruct",
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": caption},
+                        {"type": "image_url", "image_url": {"url": file_url}}
+                    ]
+                }
+            ],
+            temperature=1,
+            max_completion_tokens=1024,
+        )
+
+        reply = completion.choices[0].message.content
+        bot.reply_to(message, reply)
+
+    except Exception as e:
+        bot.reply_to(message, f"❌ Error saat analisis gambar:\n{str(e)}")
+
+# ======== JALANKAN BOT ========
 bot.polling(none_stop=True)
