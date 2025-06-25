@@ -7,9 +7,13 @@ from groq import Groq
 # Load .env
 load_dotenv()
 
-BOT_TOKEN = os.getenv("BOT_TOKEN") or "8172517978:AAHkn3i8f_uYVb8GkN-kMB5GkNuLtNSFkn0"
-GROQ_API_KEY = os.getenv("GROQ_API_KEY") or "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"
-RENDER_EXTERNAL_HOSTNAME = os.getenv("RENDER_EXTERNAL_HOSTNAME")  # Otomatis dari Render
+BOT_TOKEN = os.getenv("BOT_TOKEN") or "your-telegram-token"
+GROQ_API_KEY = os.getenv("GROQ_API_KEY") or "your-groq-api-key"
+RENDER_EXTERNAL_HOSTNAME = os.getenv("RENDER_EXTERNAL_HOSTNAME")
+
+# Webhook URL
+if not RENDER_EXTERNAL_HOSTNAME:
+    raise Exception("RENDER_EXTERNAL_HOSTNAME tidak ditemukan. Pastikan Render environment variable sudah di-set.")
 WEBHOOK_URL = f"https://{RENDER_EXTERNAL_HOSTNAME}/webhook"
 
 bot = telebot.TeleBot(BOT_TOKEN)
@@ -58,7 +62,11 @@ def handle_photo(message):
     except Exception as e:
         bot.reply_to(message, f"❌ Error saat analisis gambar:\n{str(e)}")
 
-# ========= FLASK WEBHOOK =========
+# ========= FLASK ROUTES =========
+@app.route("/")
+def home():
+    return "🤖 Bot is running via webhook!", 200
+
 @app.route("/webhook", methods=["POST"])
 def webhook():
     if request.headers.get('content-type') == 'application/json':
@@ -68,12 +76,10 @@ def webhook():
         return "OK", 200
     return "Invalid request", 403
 
-@app.before_first_request
-def setup_webhook():
+# ========= RUN FLASK + SET WEBHOOK =========
+if __name__ == "__main__":
     bot.remove_webhook()
     bot.set_webhook(url=WEBHOOK_URL)
 
-# ========= RUN SERVER =========
-if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
