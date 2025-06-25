@@ -7,8 +7,8 @@ from groq import Groq
 # Load .env
 load_dotenv()
 
-BOT_TOKEN = os.getenv("BOT_TOKEN") or "your-telegram-token"
-GROQ_API_KEY = os.getenv("GROQ_API_KEY") or "your-groq-api-key"
+BOT_TOKEN = os.getenv("BOT_TOKEN") or "8172517978:AAHkn3i8f_uYVb8GkN-kMB5GkNuLtNSFkn0"
+GROQ_API_KEY = os.getenv("GROQ_API_KEY") or "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"
 RENDER_EXTERNAL_HOSTNAME = os.getenv("RENDER_EXTERNAL_HOSTNAME")
 
 # Webhook URL
