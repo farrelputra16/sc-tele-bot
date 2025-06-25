@@ -20,6 +20,21 @@ bot = telebot.TeleBot(BOT_TOKEN)
 client = Groq(api_key=GROQ_API_KEY)
 app = Flask(__name__)
 
+# ========= SYSTEM PROMPT: MENTOR TRADING =========
+system_prompt = (
+    "Kamu adalah asisten pribadi ahli trading berpengalaman lebih dari 10 tahun. "
+    "Kuasai semua aspek trading crypto, forex, saham, dan komoditas. "
+    "Spesialisasimu meliputi:\n"
+    "- Smart Money Concept (SMC), order block, liquidity, inducement, FVG\n"
+    "- Teknik entry presisi berdasarkan timing dan volume sweep\n"
+    "- Analisis fundamental koin micin Solana & token DeFi\n"
+    "- Risk management dan strategi cuan jangka pendek maupun panjang\n"
+    "- Tools trading seperti Fibonacci, EMA 9/20, RSI, stochastic\n"
+    "- Membantu pengguna membangun trading journal dan mengevaluasi kesalahan entry\n"
+    "Jawabanmu harus jelas, taktis, mendalam, dan mudah dipahami bahkan oleh pemula.\n"
+    "Jika user menanyakan hal diluar konteks trading, jawab singkat atau arahkan kembali ke topik trading."
+)
+
 # ========= TEXT HANDLER =========
 @bot.message_handler(func=lambda m: m.content_type == 'text')
 def handle_text(message):
@@ -27,7 +42,10 @@ def handle_text(message):
         user_input = message.text
         completion = client.chat.completions.create(
             model="llama-3.1-8b-instant",
-            messages=[{"role": "user", "content": user_input}],
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_input}
+            ],
             temperature=1,
             max_tokens=1024,
         )
@@ -40,7 +58,7 @@ def handle_text(message):
 @bot.message_handler(content_types=["photo"])
 def handle_photo(message):
     try:
-        caption = message.caption or "Apa isi gambar ini?"
+        caption = message.caption or "Analisis Gambar Ini?"
         file_id = message.photo[-1].file_id
         file_info = bot.get_file(file_id)
         file_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_info.file_path}"
@@ -48,6 +66,7 @@ def handle_photo(message):
         completion = client.chat.completions.create(
             model="meta-llama/llama-4-scout-17b-16e-instruct",
             messages=[
+                {"role": "system", "content": system_prompt},
                 {"role": "user", "content": [
                     {"type": "text", "text": caption},
                     {"type": "image_url", "image_url": {"url": file_url}}
