@@ -81,6 +81,7 @@ SETUP_INSTRUCTION_ID = (
     "```json\n"
     "{\n"
     "  \"Pair\": \"<Nama Pair/Aset>\",\n"
+    "  \"Position\": \"<Long/Short>\",\n"
     "  \"Entry\": \"<Harga Entry>\",\n"
     "  \"TP\": \"<Harga Take Profit>\",\n"
     "  \"SL\": \"<Harga Stop Loss>\",\n"
@@ -101,6 +102,7 @@ SETUP_INSTRUCTION_EN = (
     "```json\n"
     "{\n"
     "  \"Pair\": \"<Asset/Pair Name>\",\n"
+    "  \"Position\": \"<Long/Short>\",\n"
     "  \"Entry\": \"<Entry Price>\",\n"
     "  \"TP\": \"<Take Profit Price>\",\n"
     "  \"SL\": \"<Stop Loss Price>\",\n"
@@ -360,6 +362,7 @@ def handle_photo(message):
                         reply_text = (
                             f"📊 **Trade Setup:**\n"
                             f"➡️ **Pair:** `{setup_data.get('Pair', 'N/A')}`\n"
+                            f"➡️ **Position:** `{setup_data.get('Position', 'N/A')}`\n"
                             f"➡️ **Entry:** `{setup_data.get('Entry', 'N/A')}`\n"
                             f"➡️ **TP:** `{setup_data.get('TP', 'N/A')}`\n"
                             f"➡️ **SL:** `{setup_data.get('SL', 'N/A')}`\n"
@@ -370,6 +373,7 @@ def handle_photo(message):
                         reply_text = (
                             f"📊 **Setup Trading:**\n"
                             f"➡️ **Pair:** `{setup_data.get('Pair', 'N/A')}`\n"
+                            f"➡️ **Position:** `{setup_data.get('Position', 'N/A')}`\n"
                             f"➡️ **Entry:** `{setup_data.get('Entry', 'N/A')}`\n"
                             f"➡️ **TP:** `{setup_data.get('TP', 'N/A')}`\n"
                             f"➡️ **SL:** `{setup_data.get('SL', 'N/A')}`\n"
