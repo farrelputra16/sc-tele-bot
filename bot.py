@@ -12,15 +12,18 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY") or "gsk_KIhToUu08EU0iflgNf8ZWGdyb3FYCow
 RENDER_EXTERNAL_HOSTNAME = os.getenv("RENDER_EXTERNAL_HOSTNAME")
 
 if not RENDER_EXTERNAL_HOSTNAME:
-    raise Exception("RENDER_EXTERNAL_HOSTNAME tidak ditemukan. Pastikan Render environment variable sudah di-set.")
+    raise Exception("RENDER_EXTERNAL_HOSTNAME not found. Make sure Render environment variable is set.")
 WEBHOOK_URL = f"https://{RENDER_EXTERNAL_HOSTNAME}/webhook"
 
 bot = telebot.TeleBot(BOT_TOKEN, parse_mode="HTML")
 client = Groq(api_key=GROQ_API_KEY)
 app = Flask(__name__)
 
-# ========== SYSTEM PROMPT ==========
-system_prompt = (
+# Dictionary to store user's language preference and current mode (learn/analyze)
+user_data = {}
+
+# ========== SYSTEM PROMPTS ==========
+SYSTEM_PROMPT_ID = (
     "Kamu adalah asisten pribadi ahli trading berpengalaman lebih dari 10 tahun. "
     "Kuasai semua aspek trading crypto, forex, saham, dan komoditas. "
     "Spesialisasimu meliputi:\n"
@@ -34,13 +37,99 @@ system_prompt = (
     "Jika user menanyakan hal diluar konteks trading, jawab singkat atau arahkan kembali ke topik trading."
 )
 
-# ========= TEXT HANDLER =========
+SYSTEM_PROMPT_EN = (
+    "You are a personal assistant, an expert trader with over 10 years of experience. "
+    "You are proficient in all aspects of crypto, forex, stock, and commodity trading. "
+    "Your specializations include:\n"
+    "- Smart Money Concept (SMC), order block, liquidity, inducement, FVG\n"
+    "- Precise entry techniques based on timing and volume sweep\n"
+    "- Fundamental analysis of Solana memecoins & DeFi tokens\n"
+    "- Risk management and short-term and long-term profit strategies\n"
+    "- Trading tools such as Fibonacci, EMA 9/20, RSI, stochastic\n"
+    "- Assisting users in building a trading journal and evaluating entry mistakes\n"
+    "Your answers must be clear, tactical, in-depth, and easy to understand even for beginners.\n"
+    "If a user asks something outside the trading context, answer briefly or redirect them back to the trading topic."
+)
+
+# ========== KEYBOARD MARKUPS ==========
+def get_language_keyboard():
+    keyboard = telebot.types.InlineKeyboardMarkup()
+    keyboard.add(
+        telebot.types.InlineKeyboardButton("English 🇬🇧", callback_data="set_lang_en"),
+        telebot.types.InlineKeyboardButton("Bahasa Indonesia 🇮🇩", callback_data="set_lang_id")
+    )
+    return keyboard
+
+def get_main_menu_keyboard(lang):
+    keyboard = telebot.types.InlineKeyboardMarkup()
+    if lang == 'en':
+        keyboard.add(
+            telebot.types.InlineKeyboardButton("📚 Learn (Text)", callback_data="set_mode_learn"),
+            telebot.types.InlineKeyboardButton("📊 Analyze (Image)", callback_data="set_mode_analyze")
+        )
+    else: # id
+        keyboard.add(
+            telebot.types.InlineKeyboardButton("📚 Belajar (Teks)", callback_data="set_mode_learn"),
+            telebot.types.InlineKeyboardButton("📊 Analisis (Gambar)", callback_data="set_mode_analyze")
+        )
+    return keyboard
+
+# ========== COMMAND HANDLERS ==========
+@bot.message_handler(commands=['start'])
+def send_welcome(message):
+    chat_id = message.chat.id
+    user_data[chat_id] = {'lang': 'en', 'mode': 'learn'} # Default to English and 'learn' mode
+    bot.send_message(chat_id, "Please choose your language / Silakan pilih bahasa Anda:", reply_markup=get_language_keyboard())
+
+# ========== CALLBACK QUERY HANDLERS ==========
+@bot.callback_query_handler(func=lambda call: call.data.startswith('set_lang_'))
+def set_language_callback(call):
+    chat_id = call.message.chat.id
+    lang = call.data.split('_')[2]
+    user_data[chat_id]['lang'] = lang
+    bot.edit_message_text(chat_id=chat_id, message_id=call.message.message_id,
+                          text="Language set to English." if lang == 'en' else "Bahasa diatur ke Bahasa Indonesia.")
+    send_main_menu(chat_id)
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('set_mode_'))
+def set_mode_callback(call):
+    chat_id = call.message.chat.id
+    mode = call.data.split('_')[2]
+    user_data[chat_id]['mode'] = mode
+    lang = user_data[chat_id]['lang']
+
+    if mode == 'learn':
+        msg = "You are now in **Learn** mode. Send me your text queries about trading!" if lang == 'en' \
+              else "Anda sekarang dalam mode **Belajar**. Kirimkan pertanyaan teks Anda tentang trading!"
+    else: # analyze
+        msg = "You are now in **Analyze** mode. Send me an image with an optional caption for analysis!" if lang == 'en' \
+              else "Anda sekarang dalam mode **Analisis**. Kirimkan gambar dengan caption opsional untuk dianalisis!"
+
+    bot.edit_message_text(chat_id=chat_id, message_id=call.message.message_id, text=msg)
+
+def send_main_menu(chat_id):
+    lang = user_data[chat_id]['lang']
+    text = "What would you like to do?" if lang == 'en' else "Apa yang ingin Anda lakukan?"
+    bot.send_message(chat_id, text, reply_markup=get_main_menu_keyboard(lang))
+
+# ========== TEXT HANDLER ==========
 @bot.message_handler(func=lambda m: m.content_type == 'text')
 def handle_text(message):
+    chat_id = message.chat.id
     chat_type = message.chat.type
     bot_username = bot.get_me().username.lower()
 
-    # Jika pesan dari grup, hanya balas jika disebut atau dibalas
+    # Get user's preferred language and mode
+    user_settings = user_data.get(chat_id, {'lang': 'en', 'mode': 'learn'}) # Default if not set
+    lang = user_settings['lang']
+    mode = user_settings['mode']
+
+    # Check if in 'learn' mode
+    if mode != 'learn':
+        bot.reply_to(message, "Please switch to **Learn** mode to send text queries. Use /start to access the menu." if lang == 'en' else "Mohon beralih ke mode **Belajar** untuk mengirim pertanyaan teks. Gunakan /start untuk mengakses menu.")
+        return
+
+    # If from group, only reply if mentioned or replied
     if chat_type in ["group", "supergroup"]:
         is_mentioned = any(
             entity.type == "mention" and message.text[entity.offset:entity.offset + entity.length].lower() == f"@{bot_username}"
@@ -49,14 +138,17 @@ def handle_text(message):
         is_reply_to_bot = message.reply_to_message and message.reply_to_message.from_user.username == bot_username
 
         if not (is_mentioned or is_reply_to_bot):
-            return  # Abaikan jika tidak disebut atau tidak dibalas
+            return  # Ignore if not mentioned or not replied
 
     try:
         user_input = message.text
+        # Select system prompt based on user's language
+        current_system_prompt = SYSTEM_PROMPT_EN if lang == 'en' else SYSTEM_PROMPT_ID
+
         completion = client.chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=[
-                {"role": "system", "content": system_prompt},
+                {"role": "system", "content": current_system_prompt},
                 {"role": "user", "content": user_input}
             ],
             temperature=1,
@@ -65,21 +157,34 @@ def handle_text(message):
         reply = completion.choices[0].message.content
         bot.reply_to(message, reply)
     except Exception as e:
-        bot.reply_to(message, f"❌ Error:\n{str(e)}")
+        bot.reply_to(message, f"❌ Error:\n{str(e)}" if lang == 'en' else f"❌ Error:\n{str(e)}")
 
-# ========= IMAGE HANDLER =========
+# ========== IMAGE HANDLER ==========
 @bot.message_handler(content_types=["photo"])
 def handle_photo(message):
+    chat_id = message.chat.id
+    user_settings = user_data.get(chat_id, {'lang': 'en', 'mode': 'learn'}) # Default if not set
+    lang = user_settings['lang']
+    mode = user_settings['mode']
+
+    # Check if in 'analyze' mode
+    if mode != 'analyze':
+        bot.reply_to(message, "Please switch to **Analyze** mode to send images for analysis. Use /start to access the menu." if lang == 'en' else "Mohon beralih ke mode **Analisis** untuk mengirim gambar untuk dianalisis. Gunakan /start untuk mengakses menu.")
+        return
+
     try:
-        caption = message.caption or "Analisis Gambar Ini?"
+        caption = message.caption or ("Analyze this image?" if lang == 'en' else "Analisis Gambar Ini?")
         file_id = message.photo[-1].file_id
         file_info = bot.get_file(file_id)
         file_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_info.file_path}"
 
+        # Select system prompt based on user's language
+        current_system_prompt = SYSTEM_PROMPT_EN if lang == 'en' else SYSTEM_PROMPT_ID
+
         completion = client.chat.completions.create(
-            model="meta-llama/llama-4-scout-17b-16e-instruct",
+            model="meta-llama/llama-4-scout-17b-16e-instruct", # Ensure this model supports image input
             messages=[
-                {"role": "system", "content": system_prompt},
+                {"role": "system", "content": current_system_prompt},
                 {"role": "user", "content": [
                     {"type": "text", "text": caption},
                     {"type": "image_url", "image_url": {"url": file_url}}
@@ -92,7 +197,7 @@ def handle_photo(message):
         bot.reply_to(message, reply)
 
     except Exception as e:
-        bot.reply_to(message, f"❌ Error saat analisis gambar:\n{str(e)}")
+        bot.reply_to(message, f"❌ Error analyzing image:\n{str(e)}" if lang == 'en' else f"❌ Error saat analisis gambar:\n{str(e)}")
 
 # ========= FLASK ROUTES =========
 @app.route("/")
