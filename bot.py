@@ -21,9 +21,6 @@ client = Groq(api_key=GROQ_API_KEY)
 app = Flask(__name__)
 
 # --- Persistence for user_data (language and mode) ---
-# This will save to a file. On ephemeral filesystems like Render,
-# this data will be lost when the dyno restarts.
-# For true persistence on Render, you'd need an external database.
 USER_DATA_FILE = "user_data.json"
 
 def load_user_data():
@@ -32,20 +29,19 @@ def load_user_data():
             try:
                 return json.load(f)
             except json.JSONDecodeError:
-                # Handle empty or corrupted JSON file
                 print(f"Warning: {USER_DATA_FILE} is empty or corrupted. Starting with empty user data.")
                 return {}
     return {}
 
 def save_user_data(data):
     with open(USER_DATA_FILE, 'w') as f:
-        json.dump(data, f, indent=4) # Use indent for readability
+        json.dump(data, f, indent=4)
 
-# Dictionary to store user's language preference and current mode (learn/analyze)
-user_data = load_user_data() # Load data on startup
+user_data = load_user_data()
 
 # ========== SYSTEM PROMPTS ==========
-SYSTEM_PROMPT_ID = (
+# Base system prompt for general trading expertise
+BASE_SYSTEM_PROMPT_ID = (
     "Kamu adalah asisten pribadi ahli trading berpengalaman lebih dari 10 tahun. "
     "Kuasai semua aspek trading crypto, forex, saham, dan komoditas. "
     "Spesialisasimu meliputi:\n"
@@ -59,7 +55,7 @@ SYSTEM_PROMPT_ID = (
     "Jika user menanyakan hal diluar konteks trading, jawab singkat atau arahkan kembali ke topik trading."
 )
 
-SYSTEM_PROMPT_EN = (
+BASE_SYSTEM_PROMPT_EN = (
     "You are a personal assistant, an expert trader with over 10 years of experience. "
     "You are proficient in all aspects of crypto, forex, stock, and commodity trading. "
     "Your specializations include:\n"
@@ -72,6 +68,75 @@ SYSTEM_PROMPT_EN = (
     "Your answers must be clear, tactical, in-depth, and easy to understand even for beginners.\n"
     "If a user asks something outside the trading context, answer briefly or redirect them back to the trading topic."
 )
+
+# Specific system prompt additions for structured setup analysis
+SETUP_PROMPT_ADDITION_ID = (
+    "Berdasarkan gambar chart yang diberikan, identifikasi peluang trading dan berikan detail sinyal dalam format JSON berikut. "
+    "Pastikan semua nilai relevan dan realistis. Jika suatu nilai tidak dapat ditentukan, gunakan 'N/A'. "
+    "Hitung Risk:Reward (RR) dengan presisi dua desimal. "
+    "Format JSON yang diharapkan:\n"
+    "```json\n"
+    "{\n"
+    "  \"Pair\": \"<Nama Pair/Aset>\",\n"
+    "  \"Entry\": \"<Harga Entry>\",\n"
+    "  \"TP\": \"<Harga Take Profit>\",\n"
+    "  \"SL\": \"<Harga Stop Loss>\",\n"
+    "  \"RR\": \"<Rasio Risk:Reward (misal: 1:3.5)>\",\n"
+    "  \"Reason\": \"<Alasan Analisis/Sinyal>\"\n"
+    "}\n"
+    "```\n"
+    "Output harus murni JSON, tanpa teks pengantar atau penutup."
+)
+
+SETUP_PROMPT_ADDITION_EN = (
+    "Based on the provided chart image, identify a trading opportunity and provide signal details in the following JSON format. "
+    "Ensure all values are relevant and realistic. If a value cannot be determined, use 'N/A'. "
+    "Calculate Risk:Reward (RR) with two decimal precision. "
+    "Expected JSON format:\n"
+    "```json\n"
+    "{\n"
+    "  \"Pair\": \"<Asset/Pair Name>\",\n"
+    "  \"Entry\": \"<Entry Price>\",\n"
+    "  \"TP\": \"<Take Profit Price>\",\n"
+    "  \"SL\": \"<Stop Loss Price>\",\n"
+    "  \"RR\": \"<Risk:Reward Ratio (e.g., 1:3.5)>\",\n"
+    "  \"Reason\": \"<Analysis/Signal Reason>\"\n"
+    "}\n"
+    "```\n"
+    "The output must be pure JSON, without any introductory or concluding text."
+)
+
+# Specific system prompt additions for general analysis
+ANALYZE_PROMPT_ADDITION_ID = (
+    "Berdasarkan gambar chart yang diberikan, lakukan analisis pergerakan harga. "
+    "Identifikasi area-area penting seperti order block, liquidity pool, FVG, support/resistance, atau trendline. "
+    "Jelaskan potensi pergerakan harga di masa depan berdasarkan area-area tersebut. "
+    "Jangan berikan sinyal trading spesifik (Entry, TP, SL) atau rekomendasi beli/jual. "
+    "Fokus pada penjelasan teknikal murni."
+)
+
+ANALYZE_PROMPT_ADDITION_EN = (
+    "Based on the provided chart image, perform a price movement analysis. "
+    "Identify important areas such as order blocks, liquidity pools, FVGs, support/resistance, or trendlines. "
+    "Explain potential future price movements based on these areas. "
+    "Do not provide specific trading signals (Entry, TP, SL) or buy/sell recommendations. "
+    "Focus purely on technical explanations."
+)
+
+# JSON Schema for structured setup output
+SETUP_RESPONSE_SCHEMA = {
+    "type": "OBJECT",
+    "properties": {
+        "Pair": {"type": "STRING"},
+        "Entry": {"type": "STRING"},
+        "TP": {"type": "STRING"},
+        "SL": {"type": "STRING"},
+        "RR": {"type": "STRING"},
+        "Reason": {"type": "STRING"}
+    },
+    "required": ["Pair", "Entry", "TP", "SL", "RR", "Reason"],
+    "propertyOrdering": ["Pair", "Entry", "TP", "SL", "RR", "Reason"]
+}
 
 # ========== KEYBOARD MARKUPS ==========
 def get_language_keyboard():
@@ -86,24 +151,30 @@ def get_mode_keyboard(lang):
     keyboard = telebot.types.InlineKeyboardMarkup()
     if lang == 'en':
         keyboard.add(
-            telebot.types.InlineKeyboardButton("📚 Learn (Text)", callback_data="set_mode_learn"),
-            telebot.types.InlineKeyboardButton("📊 Analyze (Image)", callback_data="set_mode_analyze")
+            telebot.types.InlineKeyboardButton("📚 Learn (Text)", callback_data="set_mode_learn")
+        )
+        keyboard.add(
+            telebot.types.InlineKeyboardButton("⚙️ Setup Trade (Image)", callback_data="set_mode_setup"),
+            telebot.types.InlineKeyboardButton("📈 General Analysis (Image)", callback_data="set_mode_general_analyze")
         )
     else: # id
         keyboard.add(
-            telebot.types.InlineKeyboardButton("📚 Belajar (Teks)", callback_data="set_mode_learn"),
-            telebot.types.InlineKeyboardButton("📊 Analisis (Gambar)", callback_data="set_mode_analyze")
+            telebot.types.InlineKeyboardButton("📚 Belajar (Teks)", callback_data="set_mode_learn")
+        )
+        keyboard.add(
+            telebot.types.InlineKeyboardButton("⚙️ Setup Trading (Gambar)", callback_data="set_mode_setup"),
+            telebot.types.InlineKeyboardButton("📈 Analisis Umum (Gambar)", callback_data="set_mode_general_analyze")
         )
     return keyboard
 
 # ========== COMMAND HANDLERS ==========
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-    chat_id = str(message.chat.id) # Convert to string for JSON keys
+    chat_id = str(message.chat.id)
 
     if chat_id not in user_data:
         user_data[chat_id] = {'lang': 'en', 'mode': 'learn'} # Default
-        save_user_data(user_data) # Save initial data
+        save_user_data(user_data)
 
     welcome_text = "Welcome! Please choose your language / Selamat datang! Silakan pilih bahasa Anda:"
     bot.send_message(chat_id, welcome_text, reply_markup=get_language_keyboard())
@@ -111,7 +182,6 @@ def send_welcome(message):
 @bot.message_handler(commands=['language'])
 def send_language_menu(message):
     chat_id = str(message.chat.id)
-    # Ensure user data exists, if not, initialize with default
     if chat_id not in user_data:
         user_data[chat_id] = {'lang': 'en', 'mode': 'learn'}
         save_user_data(user_data)
@@ -123,7 +193,6 @@ def send_language_menu(message):
 @bot.message_handler(commands=['mode'])
 def send_mode_menu(message):
     chat_id = str(message.chat.id)
-    # Ensure user data exists, if not, initialize with default
     if chat_id not in user_data:
         user_data[chat_id] = {'lang': 'en', 'mode': 'learn'}
         save_user_data(user_data)
@@ -132,32 +201,59 @@ def send_mode_menu(message):
     text = "Choose your interaction mode:" if lang == 'en' else "Pilih mode interaksi Anda:"
     bot.send_message(chat_id, text, reply_markup=get_mode_keyboard(lang))
 
+# New command handlers for specific analysis types
+@bot.message_handler(commands=['setup'])
+def set_mode_setup_command(message):
+    chat_id = str(message.chat.id)
+    if chat_id not in user_data:
+        user_data[chat_id] = {'lang': 'en', 'mode': 'learn'}
+    user_data[chat_id]['mode'] = 'setup'
+    save_user_data(user_data)
+    lang = user_data[chat_id]['lang']
+    msg = "You are now in **Setup Trade** mode. Send me a chart image for signal generation!" if lang == 'en' \
+          else "Anda sekarang dalam mode **Setup Trading**. Kirimkan gambar chart untuk menghasilkan sinyal!"
+    bot.send_message(chat_id, msg)
+
+@bot.message_handler(commands=['analyze'])
+def set_mode_general_analyze_command(message):
+    chat_id = str(message.chat.id)
+    if chat_id not in user_data:
+        user_data[chat_id] = {'lang': 'en', 'mode': 'learn'}
+    user_data[chat_id]['mode'] = 'general_analyze'
+    save_user_data(user_data)
+    lang = user_data[chat_id]['lang']
+    msg = "You are now in **General Analysis** mode. Send me a chart image for market movement analysis!" if lang == 'en' \
+          else "Anda sekarang dalam mode **Analisis Umum**. Kirimkan gambar chart untuk analisis pergerakan pasar!"
+    bot.send_message(chat_id, msg)
+
 # ========== CALLBACK QUERY HANDLERS ==========
 @bot.callback_query_handler(func=lambda call: call.data.startswith('set_lang_'))
 def set_language_callback(call):
     chat_id = str(call.message.chat.id)
     lang = call.data.split('_')[2]
     user_data[chat_id]['lang'] = lang
-    save_user_data(user_data) # Save updated data
+    save_user_data(user_data)
 
     bot.edit_message_text(chat_id=chat_id, message_id=call.message.message_id,
                           text="Language set to English." if lang == 'en' else "Bahasa diatur ke Bahasa Indonesia.")
-    # No need to send main menu here, as user specifically chose language
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('set_mode_'))
 def set_mode_callback(call):
     chat_id = str(call.message.chat.id)
     mode = call.data.split('_')[2]
     user_data[chat_id]['mode'] = mode
-    save_user_data(user_data) # Save updated data
+    save_user_data(user_data)
     lang = user_data[chat_id]['lang']
 
     if mode == 'learn':
         msg = "You are now in **Learn** mode. Send me your text queries about trading!" if lang == 'en' \
               else "Anda sekarang dalam mode **Belajar**. Kirimkan pertanyaan teks Anda tentang trading!"
-    else: # analyze
-        msg = "You are now in **Analyze** mode. Send me an image with an optional caption for analysis!" if lang == 'en' \
-              else "Anda sekarang dalam mode **Analisis**. Kirimkan gambar dengan caption opsional untuk dianalisis!"
+    elif mode == 'setup':
+        msg = "You are now in **Setup Trade** mode. Send me a chart image for signal generation!" if lang == 'en' \
+              else "Anda sekarang dalam mode **Setup Trading**. Kirimkan gambar chart untuk menghasilkan sinyal!"
+    elif mode == 'general_analyze':
+        msg = "You are now in **General Analysis** mode. Send me a chart image for market movement analysis!" if lang == 'en' \
+              else "Anda sekarang dalam mode **Analisis Umum**. Kirimkan gambar chart untuk analisis pergerakan pasar!"
 
     bot.edit_message_text(chat_id=chat_id, message_id=call.message.message_id, text=msg)
 
@@ -168,17 +264,14 @@ def handle_text(message):
     chat_type = message.chat.type
     bot_username = bot.get_me().username.lower()
 
-    # Get user's preferred language and mode
-    user_settings = user_data.get(chat_id, {'lang': 'en', 'mode': 'learn'}) # Default if not set
+    user_settings = user_data.get(chat_id, {'lang': 'en', 'mode': 'learn'})
     lang = user_settings['lang']
     mode = user_settings['mode']
 
-    # Check if in 'learn' mode
     if mode != 'learn':
         bot.reply_to(message, "Please switch to **Learn** mode to send text queries. Use /mode to change." if lang == 'en' else "Mohon beralih ke mode **Belajar** untuk mengirim pertanyaan teks. Gunakan /mode untuk mengubahnya.")
         return
 
-    # If from group, only reply if mentioned or replied
     if chat_type in ["group", "supergroup"]:
         is_mentioned = any(
             entity.type == "mention" and message.text[entity.offset:entity.offset + entity.length].lower() == f"@{bot_username}"
@@ -187,12 +280,11 @@ def handle_text(message):
         is_reply_to_bot = message.reply_to_message and message.reply_to_message.from_user.username == bot_username
 
         if not (is_mentioned or is_reply_to_bot):
-            return  # Ignore if not mentioned or not replied
+            return
 
     try:
         user_input = message.text
-        # Select system prompt based on user's language
-        current_system_prompt = SYSTEM_PROMPT_EN if lang == 'en' else SYSTEM_PROMPT_ID
+        current_system_prompt = BASE_SYSTEM_PROMPT_EN if lang == 'en' else BASE_SYSTEM_PROMPT_ID
 
         completion = client.chat.completions.create(
             model="llama-3.1-8b-instant",
@@ -212,13 +304,13 @@ def handle_text(message):
 @bot.message_handler(content_types=["photo"])
 def handle_photo(message):
     chat_id = str(message.chat.id)
-    user_settings = user_data.get(chat_id, {'lang': 'en', 'mode': 'learn'}) # Default if not set
+    user_settings = user_data.get(chat_id, {'lang': 'en', 'mode': 'learn'})
     lang = user_settings['lang']
     mode = user_settings['mode']
 
-    # Check if in 'analyze' mode
-    if mode != 'analyze':
-        bot.reply_to(message, "Please switch to **Analyze** mode to send images for analysis. Use /mode to change." if lang == 'en' else "Mohon beralih ke mode **Analisis** untuk mengirim gambar untuk dianalisis. Gunakan /mode untuk mengubahnya.")
+    # Check if in a valid analysis mode
+    if mode not in ['setup', 'general_analyze']:
+        bot.reply_to(message, "Please select an analysis mode first (Setup Trade or General Analysis). Use /mode to change." if lang == 'en' else "Mohon pilih mode analisis terlebih dahulu (Setup Trading atau Analisis Umum). Gunakan /mode untuk mengubahnya.")
         return
 
     try:
@@ -227,23 +319,80 @@ def handle_photo(message):
         file_info = bot.get_file(file_id)
         file_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_info.file_path}"
 
-        # Select system prompt based on user's language
-        current_system_prompt = SYSTEM_PROMPT_EN if lang == 'en' else SYSTEM_PROMPT_ID
+        messages = []
+        generation_config = {}
+
+        if mode == 'setup':
+            # For 'setup' mode, combine base prompt with setup-specific prompt and enforce JSON schema
+            current_system_prompt = (BASE_SYSTEM_PROMPT_EN + "\n\n" + SETUP_PROMPT_ADDITION_EN) if lang == 'en' \
+                                    else (BASE_SYSTEM_PROMPT_ID + "\n\n" + SETUP_PROMPT_ADDITION_ID)
+            
+            messages.append({"role": "system", "content": current_system_prompt})
+            messages.append({"role": "user", "content": [
+                {"type": "text", "text": caption},
+                {"type": "image_url", "image_url": {"url": file_url}}
+            ]})
+            generation_config = {
+                "responseMimeType": "application/json",
+                "responseSchema": SETUP_RESPONSE_SCHEMA
+            }
+            model_to_use = "meta-llama/llama-4-scout-17b-16e-instruct" # Image capable model
+            
+        elif mode == 'general_analyze':
+            # For 'general_analyze' mode, combine base prompt with general analysis prompt
+            current_system_prompt = (BASE_SYSTEM_PROMPT_EN + "\n\n" + ANALYZE_PROMPT_ADDITION_EN) if lang == 'en' \
+                                    else (BASE_SYSTEM_PROMPT_ID + "\n\n" + ANALYZE_PROMPT_ADDITION_ID)
+            
+            messages.append({"role": "system", "content": current_system_prompt})
+            messages.append({"role": "user", "content": [
+                {"type": "text", "text": caption},
+                {"type": "image_url", "image_url": {"url": file_url}}
+            ]})
+            model_to_use = "meta-llama/llama-4-scout-17b-16e-instruct" # Image capable model
 
         completion = client.chat.completions.create(
-            model="meta-llama/llama-4-scout-17b-16e-instruct", # Ensure this model supports image input
-            messages=[
-                {"role": "system", "content": current_system_prompt},
-                {"role": "user", "content": [
-                    {"type": "text", "text": caption},
-                    {"type": "image_url", "image_url": {"url": file_url}}
-                ]}
-            ],
-            temperature=1,
+            model=model_to_use,
+            messages=messages,
+            temperature=0.7, # Slightly lower temperature for more precise analysis
             max_completion_tokens=1024,
+            **generation_config # Apply generation config if present (for setup mode)
         )
-        reply = completion.choices[0].message.content
-        bot.reply_to(message, reply)
+        
+        raw_reply = completion.choices[0].message.content
+
+        # Format the reply based on mode
+        reply_text = ""
+        if mode == 'setup':
+            try:
+                # Parse the JSON response
+                setup_data = json.loads(raw_reply)
+                if lang == 'en':
+                    reply_text = (
+                        f"📊 **Trade Setup:**\n"
+                        f"➡️ **Pair:** `{setup_data.get('Pair', 'N/A')}`\n"
+                        f"➡️ **Entry:** `{setup_data.get('Entry', 'N/A')}`\n"
+                        f"➡️ **TP:** `{setup_data.get('TP', 'N/A')}`\n"
+                        f"➡️ **SL:** `{setup_data.get('SL', 'N/A')}`\n"
+                        f"➡️ **RR:** `{setup_data.get('RR', 'N/A')}`\n"
+                        f"➡️ **Reason:** {setup_data.get('Reason', 'N/A')}"
+                    )
+                else: # id
+                    reply_text = (
+                        f"📊 **Setup Trading:**\n"
+                        f"➡️ **Pair:** `{setup_data.get('Pair', 'N/A')}`\n"
+                        f"➡️ **Entry:** `{setup_data.get('Entry', 'N/A')}`\n"
+                        f"➡️ **TP:** `{setup_data.get('TP', 'N/A')}`\n"
+                        f"➡️ **SL:** `{setup_data.get('SL', 'N/A')}`\n"
+                        f"➡️ **RR:** `{setup_data.get('RR', 'N/A')}`\n"
+                        f"➡️ **Alasan:** {setup_data.get('Reason', 'N/A')}"
+                    )
+            except json.JSONDecodeError:
+                reply_text = f"❌ Error: Could not parse setup data. Raw response:\n`{raw_reply}`" if lang == 'en' \
+                             else f"❌ Error: Tidak dapat mengurai data setup. Respon mentah:\n`{raw_reply}`"
+        else: # general_analyze
+            reply_text = raw_reply # For general analysis, just use the raw text reply
+
+        bot.reply_to(message, reply_text)
 
     except Exception as e:
         bot.reply_to(message, f"❌ Error analyzing image:\n{str(e)}" if lang == 'en' else f"❌ Error saat analisis gambar:\n{str(e)}")
