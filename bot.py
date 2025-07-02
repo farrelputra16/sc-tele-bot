@@ -32,12 +32,14 @@ def load_user_data():
             try:
                 return json.load(f)
             except json.JSONDecodeError:
-                return {} # Return empty if file is corrupted
+                # Handle empty or corrupted JSON file
+                print(f"Warning: {USER_DATA_FILE} is empty or corrupted. Starting with empty user data.")
+                return {}
     return {}
 
 def save_user_data(data):
     with open(USER_DATA_FILE, 'w') as f:
-        json.dump(data, f)
+        json.dump(data, f, indent=4) # Use indent for readability
 
 # Dictionary to store user's language preference and current mode (learn/analyze)
 user_data = load_user_data() # Load data on startup
@@ -80,7 +82,7 @@ def get_language_keyboard():
     )
     return keyboard
 
-def get_main_menu_keyboard(lang):
+def get_mode_keyboard(lang):
     keyboard = telebot.types.InlineKeyboardMarkup()
     if lang == 'en':
         keyboard.add(
@@ -95,23 +97,40 @@ def get_main_menu_keyboard(lang):
     return keyboard
 
 # ========== COMMAND HANDLERS ==========
-@bot.message_handler(commands=['start', 'settings'])
-def send_welcome_or_settings(message):
+@bot.message_handler(commands=['start'])
+def send_welcome(message):
     chat_id = str(message.chat.id) # Convert to string for JSON keys
 
     if chat_id not in user_data:
         user_data[chat_id] = {'lang': 'en', 'mode': 'learn'} # Default
         save_user_data(user_data) # Save initial data
 
-    lang = user_data[chat_id]['lang']
+    welcome_text = "Welcome! Please choose your language / Selamat datang! Silakan pilih bahasa Anda:"
+    bot.send_message(chat_id, welcome_text, reply_markup=get_language_keyboard())
 
-    if message.text == '/start':
-        welcome_text = "Welcome! Please choose your language / Selamat datang! Silakan pilih bahasa Anda:"
-        bot.send_message(chat_id, welcome_text, reply_markup=get_language_keyboard())
-    elif message.text == '/settings':
-        settings_text = "Language & Mode Settings:" if lang == 'en' else "Pengaturan Bahasa & Mode:"
-        bot.send_message(chat_id, settings_text, reply_markup=get_language_keyboard())
-        send_main_menu(chat_id) # Also show mode options
+@bot.message_handler(commands=['language'])
+def send_language_menu(message):
+    chat_id = str(message.chat.id)
+    # Ensure user data exists, if not, initialize with default
+    if chat_id not in user_data:
+        user_data[chat_id] = {'lang': 'en', 'mode': 'learn'}
+        save_user_data(user_data)
+
+    lang = user_data[chat_id]['lang']
+    text = "Please choose your language:" if lang == 'en' else "Silakan pilih bahasa Anda:"
+    bot.send_message(chat_id, text, reply_markup=get_language_keyboard())
+
+@bot.message_handler(commands=['mode'])
+def send_mode_menu(message):
+    chat_id = str(message.chat.id)
+    # Ensure user data exists, if not, initialize with default
+    if chat_id not in user_data:
+        user_data[chat_id] = {'lang': 'en', 'mode': 'learn'}
+        save_user_data(user_data)
+
+    lang = user_data[chat_id]['lang']
+    text = "Choose your interaction mode:" if lang == 'en' else "Pilih mode interaksi Anda:"
+    bot.send_message(chat_id, text, reply_markup=get_mode_keyboard(lang))
 
 # ========== CALLBACK QUERY HANDLERS ==========
 @bot.callback_query_handler(func=lambda call: call.data.startswith('set_lang_'))
@@ -123,7 +142,7 @@ def set_language_callback(call):
 
     bot.edit_message_text(chat_id=chat_id, message_id=call.message.message_id,
                           text="Language set to English." if lang == 'en' else "Bahasa diatur ke Bahasa Indonesia.")
-    send_main_menu(chat_id)
+    # No need to send main menu here, as user specifically chose language
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('set_mode_'))
 def set_mode_callback(call):
@@ -142,11 +161,6 @@ def set_mode_callback(call):
 
     bot.edit_message_text(chat_id=chat_id, message_id=call.message.message_id, text=msg)
 
-def send_main_menu(chat_id):
-    lang = user_data[chat_id]['lang']
-    text = "Choose your interaction mode:" if lang == 'en' else "Pilih mode interaksi Anda:"
-    bot.send_message(chat_id, text, reply_markup=get_main_menu_keyboard(lang))
-
 # ========== TEXT HANDLER ==========
 @bot.message_handler(func=lambda m: m.content_type == 'text')
 def handle_text(message):
@@ -161,7 +175,7 @@ def handle_text(message):
 
     # Check if in 'learn' mode
     if mode != 'learn':
-        bot.reply_to(message, "Please switch to **Learn** mode to send text queries. Use /settings to access the menu." if lang == 'en' else "Mohon beralih ke mode **Belajar** untuk mengirim pertanyaan teks. Gunakan /settings untuk mengakses menu.")
+        bot.reply_to(message, "Please switch to **Learn** mode to send text queries. Use /mode to change." if lang == 'en' else "Mohon beralih ke mode **Belajar** untuk mengirim pertanyaan teks. Gunakan /mode untuk mengubahnya.")
         return
 
     # If from group, only reply if mentioned or replied
@@ -204,7 +218,7 @@ def handle_photo(message):
 
     # Check if in 'analyze' mode
     if mode != 'analyze':
-        bot.reply_to(message, "Please switch to **Analyze** mode to send images for analysis. Use /settings to access the menu." if lang == 'en' else "Mohon beralih ke mode **Analisis** untuk mengirim gambar untuk dianalisis. Gunakan /settings untuk mengakses menu.")
+        bot.reply_to(message, "Please switch to **Analyze** mode to send images for analysis. Use /mode to change." if lang == 'en' else "Mohon beralih ke mode **Analisis** untuk mengirim gambar untuk dianalisis. Gunakan /mode untuk mengubahnya.")
         return
 
     try:
