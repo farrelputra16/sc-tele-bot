@@ -61,6 +61,7 @@ def save_user_data(data):
 user_data = load_user_data()
 
 # ========== SYSTEM PROMPTS ==========
+# Base system prompt for general trading expertise - unchanged as it's general knowledge
 BASE_SYSTEM_PROMPT_ID = (
     "Kamu adalah asisten pribadi ahli trading berpengalaman lebih dari 10 tahun. "
     "Kuasai semua aspek trading crypto, forex, saham, dan komoditas. "
@@ -89,11 +90,14 @@ BASE_SYSTEM_PROMPT_EN = (
     "If a user asks something outside the trading context, answer briefly or redirect them back to the trading topic."
 )
 
+# Specific instruction for structured setup analysis (updated for softer tone + disclaimer)
 SETUP_INSTRUCTION_ID = (
-    "Tolong analisis gambar chart ini dan identifikasi peluang trading. "
-    "Berikan detail sinyal dalam format JSON murni. "
-    "Pastikan semua nilai relevan dan realistis. Jika suatu nilai tidak dapat ditentukan, gunakan 'N/A'. "
-    "Hitung Risk:Reward (RR) dengan presisi dua desimal. "
+    "Tolong analisis gambar chart ini dengan cermat dan identifikasi potensi peluang trading. "
+    "Fokus pada identifikasi setup yang presisi berdasarkan Smart Money Concept (SMC) dan analisis teknikal lanjutan. "
+    "Berikan detail sinyal dalam format JSON murni dan pastikan akurasi tinggi. "
+    "Pastikan semua nilai (Pair, Position, Entry, TP, SL, RR) relevan dan realistis sesuai dengan chart. "
+    "Jika suatu nilai tidak dapat ditentukan secara spesifik dari gambar, gunakan 'N/A'. "
+    "Hitung Risk:Reward (RR) dengan presisi dua desimal."
     "Output harus dimulai dan diakhiri dengan blok JSON, tanpa teks pengantar, penutup, atau penjelasan lainnya di luar JSON. "
     "Contoh format:\n"
     "```json\n"
@@ -104,18 +108,21 @@ SETUP_INSTRUCTION_ID = (
     "  \"TP\": \"<Harga Take Profit>\",\n"
     "  \"SL\": \"<Harga Stop Loss>\",\n"
     "  \"RR\": \"<Rasio Risk:Reward (misal: 1:3.5)>\",\n"
-    "  \"Reason\": \"<Alasan Analisis/Sinyal>\"\n"
+    "  \"Reason\": \"<Penjelasan singkat alasan analisis/sinyal berdasarkan konsep SMC atau teknikal lain>\"\n"
     "}\n"
     "```\n"
-    "Output Anda harus murni JSON, tanpa markdown code block backticks ````json` atau teks apapun di luar blok JSON."
+    "Output Anda harus murni JSON, tanpa markdown code block backticks ````json` atau teks apapun di luar blok JSON. "
+    "**Penting:** Analisis ini murni bersifat edukatif dan teknikal. Ini BUKAN nasihat keuangan atau ajakan untuk berinvestasi."
 )
 
 SETUP_INSTRUCTION_EN = (
-    "Please analyze this chart image and identify a trading opportunity. "
-    "Provide signal details in pure JSON format. "
-    "Ensure all values are relevant and realistic. If a value cannot be determined, use 'N/A'. "
+    "Please meticulously analyze this chart image and identify potential trading opportunities. "
+    "Focus on precise setup identification based on Smart Money Concept (SMC) and advanced technical analysis. "
+    "Provide signal details in pure JSON format and ensure high accuracy. "
+    "Ensure all values (Pair, Position, Entry, TP, SL, RR) are relevant and realistic according to the chart. "
+    "If a value cannot be specifically determined from the image, use 'N/A'. "
     "Calculate Risk:Reward (RR) with two decimal precision. "
-    "The output must start and end with a JSON block, with no introductory, concluding, or other explanatory text outside the JSON. "
+    "The output must start and end with a pure JSON block, with no introductory, concluding, or other explanatory text outside the JSON. "
     "Example format:\n"
     "```json\n"
     "{\n"
@@ -125,24 +132,28 @@ SETUP_INSTRUCTION_EN = (
     "  \"TP\": \"<Take Profit Price>\",\n"
     "  \"SL\": \"<Stop Loss Price>\",\n"
     "  \"RR\": \"<Risk:Reward Ratio (e.g., 1:3.5)>\",\n"
-    "  \"Reason\": \"<Analysis/Signal Reason>\"\n"
+    "  \"Reason\": \"<Brief explanation for the analysis/signal based on SMC or other technical concepts>\"\n"
     "}\n"
     "```\n"
-    "Your output must be pure JSON, without markdown code block backticks ````json` or any text outside the JSON block."
+    "Your output must be pure JSON, without markdown code block backticks ````json` or any text outside the JSON block. "
+    "**Important:** This analysis is purely educational and technical. It is NOT financial advice or an inducement to invest."
 )
 
+# Specific instruction for general analysis (updated for softer tone + disclaimer)
 ANALYZE_INSTRUCTION_ID = (
-    "Tolong analisis gambar chart ini dan identifikasi area-area penting seperti order block, liquidity pool, FVG, support/resistance, atau trendline. "
-    "Jelaskan potensi pergerakan harga di masa depan berdasarkan area-area tersebut. "
-    "Jangan berikan sinyal trading spesifik (Entry, TP, SL) atau rekomendasi beli/jual. "
-    "Fokus pada penjelasan teknikal murni."
+    "Tolong analisis gambar chart ini secara komprehensif dan identifikasi area-area penting seperti order block, liquidity pool, FVG, support/resistance, atau trendline. "
+    "Jelaskan secara mendalam potensi pergerakan harga di masa depan berdasarkan identifikasi area-area tersebut. "
+    "Fokus pada penjelasan teknikal murni dengan akurasi tinggi. "
+    "Jangan berikan sinyal trading spesifik (Entry, TP, SL) atau rekomendasi beli/jual, melainkan fokus pada interpretasi kondisi pasar dari perspektif teknikal. "
+    "**Penting:** Analisis ini murni bersifat edukatif dan teknikal. Ini BUKAN nasihat keuangan atau ajakan untuk berinvestasi."
 )
 
 ANALYZE_INSTRUCTION_EN = (
-    "Please analyze this chart image and identify important areas such as order blocks, liquidity pools, FVGs, support/resistance, or trendlines. "
-    "Explain potential future price movements based on these areas. "
-    "Do not provide specific trading signals (Entry, TP, SL) or buy/sell recommendations. "
-    "Focus purely on technical explanations."
+    "Please comprehensively analyze this chart image and identify important areas such as order blocks, liquidity pools, FVGs, support/resistance, or trendlines. "
+    "Explain in detail potential future price movements based on the identification of these areas. "
+    "Focus on purely technical explanations with high accuracy. "
+    "Do not provide specific trading signals (Entry, TP, SL) or buy/sell recommendations. Instead, focus on interpreting market conditions from a technical perspective. "
+    "**Important:** This analysis is purely educational and technical. It is NOT financial advice or an inducement to invest."
 )
 
 # ========== KEYBOARD MARKUPS ==========
@@ -376,17 +387,15 @@ def handle_photo(message):
         print(f"\nFile {uploaded_file.display_name} is active.")
 
         # Determine the appropriate instruction text based on the current_mode
-        base_prompt = BASE_SYSTEM_PROMPT_EN if lang == 'en' else BASE_SYSTEM_PROMPT_ID
+        # Combine base system prompt with specific instruction for image analysis
+        # The prompt is now softer and includes disclaimers
         
         if current_mode == 'setup':
-            instruction_text = SETUP_INSTRUCTION_EN if lang == 'en' else SETUP_INSTRUCTION_ID
+            full_instruction_text = SETUP_INSTRUCTION_EN if lang == 'en' else SETUP_INSTRUCTION_ID
         elif current_mode == 'general_analyze':
-            instruction_text = ANALYZE_INSTRUCTION_EN if lang == 'en' else ANALYZE_INSTRUCTION_ID
+            full_instruction_text = ANALYZE_INSTRUCTION_EN if lang == 'en' else ANALYZE_INSTRUCTION_ID
         else: # Fallback, should not happen if logic is sound
-            instruction_text = "Please analyze this image." if lang == 'en' else "Tolong analisis gambar ini."
-        
-        # Combine base system prompt with specific instruction for image analysis
-        full_instruction_text = base_prompt + "\n\n" + instruction_text
+            full_instruction_text = "Please analyze this image with high accuracy, focusing on technical aspects. This is for educational purposes only and not financial advice." if lang == 'en' else "Tolong analisis gambar ini dengan akurasi tinggi, fokus pada aspek teknikal. Ini hanya untuk tujuan edukasi dan bukan nasihat keuangan."
 
         contents = [
             full_instruction_text,
@@ -400,7 +409,7 @@ def handle_photo(message):
                 'HARASSMENT': 'BLOCK_NONE',
                 'HATE_SPEECH': 'BLOCK_NONE',
                 'SEXUALLY_EXPLICIT': 'BLOCK_NONE',
-                'DANGEROUS_CONTENT': 'BLOCK_NONE'
+                'DANGEROUS_CONTENT': 'BLOCK_NONE' # Set to BLOCK_NONE to reduce strictness for this category
             }
         )
         
@@ -426,7 +435,8 @@ def handle_photo(message):
                             f"➡️ **TP:** `{setup_data.get('TP', 'N/A')}`\n"
                             f"➡️ **SL:** `{setup_data.get('SL', 'N/A')}`\n"
                             f"➡️ **RR:** `{setup_data.get('RR', 'N/A')}`\n"
-                            f"➡️ **Reason:** {setup_data.get('Reason', 'N/A')}"
+                            f"➡️ **Reason:** {setup_data.get('Reason', 'N/A')}\n\n"
+                            f"_Important: This analysis is for educational purposes only and not financial advice._"
                         )
                     else: # id
                         reply_text = (
@@ -437,7 +447,8 @@ def handle_photo(message):
                             f"➡️ **TP:** `{setup_data.get('TP', 'N/A')}`\n"
                             f"➡️ **SL:** `{setup_data.get('SL', 'N/A')}`\n"
                             f"➡️ **RR:** `{setup_data.get('RR', 'N/A')}`\n"
-                            f"➡️ **Alasan:** {setup_data.get('Reason', 'N/A')}"
+                            f"➡️ **Alasan:** {setup_data.get('Reason', 'N/A')}\n\n"
+                            f"_Penting: Analisis ini murni bersifat edukatif dan bukan nasihat keuangan._"
                         )
                 except json.JSONDecodeError:
                     reply_text = (f"❌ Error: Could not parse setup data. "
@@ -452,7 +463,9 @@ def handle_photo(message):
                              else (f"❌ Error: Tidak dapat menemukan JSON dalam respon AI untuk setup trading. "
                                    f"Respon mentah:\n`{raw_reply}`")
         else: # general_analyze
-            reply_text = raw_reply
+            reply_text = raw_reply + (
+                "\n\n_Important: This analysis is for educational purposes only and not financial advice._" if lang == 'en' else "\n\n_Penting: Analisis ini murni bersifat edukatif dan bukan nasihat keuangan._"
+            )
 
         bot.edit_message_text(chat_id=chat_id, message_id=processing_message.message_id, text=reply_text)
 
