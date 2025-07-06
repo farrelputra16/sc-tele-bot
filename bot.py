@@ -1,19 +1,20 @@
 import os
 import json
 import re
-import time # Import for time.sleep
+import time
 from dotenv import load_dotenv
 import telebot
 from flask import Flask, request
 from groq import Groq
 import google.generativeai as genai
+from google.generativeai.types import HarmCategory, HarmBlockThreshold, GenerationConfig # Import tambahan ini
 
 # Load .env
 load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY") # Gemini API Key
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 RENDER_EXTERNAL_HOSTNAME = os.getenv("RENDER_EXTERNAL_HOSTNAME")
 
 # Validate environment variables
@@ -35,7 +36,7 @@ client_groq = Groq(api_key=GROQ_API_KEY)
 
 # Initialize Gemini client for vision tasks
 genai.configure(api_key=GEMINI_API_KEY)
-vision_model = genai.GenerativeModel('gemini-1.5-flash') # Or 'gemini-1.5-pro' for higher quality/cost
+vision_model = genai.GenerativeModel('gemini-1.5-flash') # Or 'gemini-1.5-pro' for potentially better understanding but higher cost/latency
 
 app = Flask(__name__)
 
@@ -61,7 +62,6 @@ def save_user_data(data):
 user_data = load_user_data()
 
 # ========== SYSTEM PROMPTS ==========
-# Base system prompt for general trading expertise - unchanged as it's general knowledge
 BASE_SYSTEM_PROMPT_ID = (
     "Kamu adalah asisten pribadi ahli trading berpengalaman lebih dari 10 tahun. "
     "Kuasai semua aspek trading crypto, forex, saham, dan komoditas. "
@@ -90,7 +90,6 @@ BASE_SYSTEM_PROMPT_EN = (
     "If a user asks something outside the trading context, answer briefly or redirect them back to the trading topic."
 )
 
-# Specific instruction for structured setup analysis (updated for softer tone + disclaimer)
 SETUP_INSTRUCTION_ID = (
     "Tolong analisis gambar chart ini dengan cermat dan identifikasi potensi peluang trading. "
     "Fokus pada identifikasi setup yang presisi berdasarkan Smart Money Concept (SMC) dan analisis teknikal lanjutan. "
@@ -112,7 +111,7 @@ SETUP_INSTRUCTION_ID = (
     "}\n"
     "```\n"
     "Output Anda harus murni JSON, tanpa markdown code block backticks ````json` atau teks apapun di luar blok JSON. "
-    "**Penting:** Analisis ini murni bersifat edukatif dan teknikal. Ini BUKAN nasihat keuangan atau ajakan untuk berinvestasi."
+    "**Penting:** Analisis ini murni bersifat edukatif dan teknikal, berdasarkan data chart yang Anda berikan. Ini BUKAN nasihat keuangan atau ajakan untuk berinvestasi. Keputusan trading sepenuhnya tanggung jawab pengguna."
 )
 
 SETUP_INSTRUCTION_EN = (
@@ -136,16 +135,15 @@ SETUP_INSTRUCTION_EN = (
     "}\n"
     "```\n"
     "Your output must be pure JSON, without markdown code block backticks ````json` or any text outside the JSON block. "
-    "**Important:** This analysis is purely educational and technical. It is NOT financial advice or an inducement to invest."
+    "**Important:** This analysis is purely educational and technical, based on the chart data you provide. It is NOT financial advice or an inducement to invest. Trading decisions are solely the user's responsibility."
 )
 
-# Specific instruction for general analysis (updated for softer tone + disclaimer)
 ANALYZE_INSTRUCTION_ID = (
     "Tolong analisis gambar chart ini secara komprehensif dan identifikasi area-area penting seperti order block, liquidity pool, FVG, support/resistance, atau trendline. "
     "Jelaskan secara mendalam potensi pergerakan harga di masa depan berdasarkan identifikasi area-area tersebut. "
     "Fokus pada penjelasan teknikal murni dengan akurasi tinggi. "
     "Jangan berikan sinyal trading spesifik (Entry, TP, SL) atau rekomendasi beli/jual, melainkan fokus pada interpretasi kondisi pasar dari perspektif teknikal. "
-    "**Penting:** Analisis ini murni bersifat edukatif dan teknikal. Ini BUKAN nasihat keuangan atau ajakan untuk berinvestasi."
+    "**Penting:** Analisis ini murni bersifat edukatif dan teknikal, berdasarkan data chart yang Anda berikan. Ini BUKAN nasihat keuangan atau ajakan untuk berinvestasi. Keputusan trading sepenuhnya tanggung jawab pengguna."
 )
 
 ANALYZE_INSTRUCTION_EN = (
@@ -153,7 +151,7 @@ ANALYZE_INSTRUCTION_EN = (
     "Explain in detail potential future price movements based on the identification of these areas. "
     "Focus on purely technical explanations with high accuracy. "
     "Do not provide specific trading signals (Entry, TP, SL) or buy/sell recommendations. Instead, focus on interpreting market conditions from a technical perspective. "
-    "**Important:** This analysis is purely educational and technical. It is NOT financial advice or an inducement to invest."
+    "**Important:** This analysis is purely educational and technical, based on the chart data you provide. It is NOT financial advice or an inducement to invest. Trading decisions are solely the user's responsibility."
 )
 
 # ========== KEYBOARD MARKUPS ==========
@@ -374,7 +372,6 @@ def handle_photo(message):
         uploaded_file = genai.upload_file(path=temp_file_path, display_name=f"chart_{file_id}")
         
         # Check whether the file is ready to be used.
-        # This is the recommended way to wait for file processing
         print(f"Uploaded file '{uploaded_file.display_name}' ({uploaded_file.uri}). Waiting for it to become active...")
         while uploaded_file.state.name == "PROCESSING":
             print('.', end='', flush=True) # Print dot and flush output immediately
@@ -387,9 +384,6 @@ def handle_photo(message):
         print(f"\nFile {uploaded_file.display_name} is active.")
 
         # Determine the appropriate instruction text based on the current_mode
-        # Combine base system prompt with specific instruction for image analysis
-        # The prompt is now softer and includes disclaimers
-        
         if current_mode == 'setup':
             full_instruction_text = SETUP_INSTRUCTION_EN if lang == 'en' else SETUP_INSTRUCTION_ID
         elif current_mode == 'general_analyze':
@@ -402,17 +396,36 @@ def handle_photo(message):
             uploaded_file
         ]
 
-        # Generate content using the Gemini vision model
+        # Generate content using the Gemini vision model with explicit safety settings
+        # Using HarmCategory and HarmBlockThreshold for clarity and granular control
         gemini_response = vision_model.generate_content(
             contents=contents,
             safety_settings={
-                'HARASSMENT': 'BLOCK_NONE',
-                'HATE_SPEECH': 'BLOCK_NONE',
-                'SEXUALLY_EXPLICIT': 'BLOCK_NONE',
-                'DANGEROUS_CONTENT': 'BLOCK_NONE' # Set to BLOCK_NONE to reduce strictness for this category
+                HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
+                HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
+                HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
+                HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE
             }
         )
         
+        # Check if response candidates exist, otherwise it was blocked
+        if not gemini_response.candidates:
+            block_reason_feedback = "UNKNOWN_REASON"
+            if gemini_response.prompt_feedback and gemini_response.prompt_feedback.block_reason:
+                block_reason_feedback = gemini_response.prompt_feedback.block_reason.name
+            
+            # More specific message for dangerous content blocks
+            if block_reason_feedback == "SAFETY": # 'SAFETY' is often the overarching block reason
+                raise genai.types.BlockedPromptException(
+                    "Prompt blocked due to content policy. This often occurs if the chart or request implies risky financial behavior. Please try a different chart or a more general/educational request." if lang == 'en' else
+                    "Permintaan diblokir karena kebijakan konten. Ini sering terjadi jika chart atau permintaan menyiratkan perilaku keuangan berisiko. Silakan coba chart yang berbeda atau permintaan yang lebih umum/edukatif."
+                )
+            else:
+                raise ValueError(
+                    f"Gemini API did not return any candidates and was blocked for reason: {block_reason_feedback}." if lang == 'en' else
+                    f"API Gemini tidak mengembalikan hasil dan diblokir karena alasan: {block_reason_feedback}."
+                )
+                
         raw_reply = gemini_response.text
 
         reply_text = ""
@@ -469,8 +482,38 @@ def handle_photo(message):
 
         bot.edit_message_text(chat_id=chat_id, message_id=processing_message.message_id, text=reply_text)
 
+    # Specific error handling for Gemini API content blocking
+    # This exception is raised when the prompt itself (input) is blocked
+    except genai.types.BlockedPromptException as e:
+        block_reason = "Unknown"
+        if e.response and e.response.prompt_feedback and e.response.prompt_feedback.block_reason:
+            block_reason = e.response.prompt_feedback.block_reason.name
+        
+        detailed_msg_en = f"The input (chart or caption) was blocked due to '{block_reason}' content policy. Please try a different chart or modify your request to be less explicit about potential financial risks."
+        detailed_msg_id = f"Input (chart atau caption) diblokir karena kebijakan konten '{block_reason}'. Silakan coba chart yang berbeda atau modifikasi permintaan Anda agar tidak terlalu eksplisit tentang potensi risiko keuangan."
+        
+        final_error_msg = detailed_msg_en if lang == 'en' else detailed_msg_id
+        bot.edit_message_text(chat_id=chat_id, message_id=processing_message.message_id, text=f"❌ Analysis blocked by AI:\n{final_error_msg}")
+
+    # This exception is raised when the model generates a response, but it's blocked.
+    # This is often where 'dangerous_content' shows up for the *output*.
+    except genai.types.StopCandidateException as e:
+        block_reason_category = "UNKNOWN"
+        if e.response and e.response.safety_ratings:
+            for rating in e.response.safety_ratings:
+                if rating.blocked:
+                    block_reason_category = rating.category.name.replace("HARM_CATEGORY_", "")
+                    break
+        
+        detailed_msg_en = f"The AI's response was blocked due to '{block_reason_category}' content policy. This can happen if the generated signal/analysis is interpreted as promoting high-risk behavior. Please try again with a different chart."
+        detailed_msg_id = f"Respons AI diblokir karena kebijakan konten '{block_reason_category}'. Ini bisa terjadi jika sinyal/analisis yang dihasilkan diinterpretasikan sebagai mendorong perilaku berisiko tinggi. Silakan coba lagi dengan chart yang berbeda."
+        
+        final_error_msg = detailed_msg_en if lang == 'en' else detailed_msg_id
+        bot.edit_message_text(chat_id=chat_id, message_id=processing_message.message_id, text=f"❌ AI response blocked:\n{final_error_msg}")
+
+    # Catch any other unexpected errors
     except Exception as e:
-        error_msg = f"❌ Error analyzing image:\n{str(e)}" if lang == 'en' else f"❌ Error saat analisis gambar:\n{str(e)}"
+        error_msg = f"❌ An unexpected error occurred during image analysis:\n{str(e)}" if lang == 'en' else f"❌ Terjadi error tak terduga saat analisis gambar:\n{str(e)}"
         bot.edit_message_text(chat_id=chat_id, message_id=processing_message.message_id, text=error_msg)
     finally:
         # Clean up temporary files
@@ -504,8 +547,8 @@ def webhook():
 
 # ========= RUN FLASK + SET WEBHOOK =========
 if __name__ == "__main__":
-    bot.remove_webhook() # Ensure no previous webhooks are active
-    bot.set_webhook(url=WEBHOOK_URL) # Set the new webhook
+    bot.remove_webhook()
+    bot.set_webhook(url=WEBHOOK_URL)
 
     port = int(os.environ.get("PORT", 5000))
     print(f"Starting Flask app on port {port} with webhook URL: {WEBHOOK_URL}")
