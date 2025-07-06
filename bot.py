@@ -493,26 +493,26 @@ def handle_photo(message):
             if setup_data:
                 if lang == 'en':
                     reply_text = (
-                        f"📊 **Trade Setup:**\n"
-                        f"➡️ **Pair:** `{setup_data.get('Pair', 'N/A')}`\n"
-                        f"➡️ **Position:** `{setup_data.get('Position', 'N/A')}`\n"
-                        f"➡️ **Entry:** `{setup_data.get('Entry', 'N/A')}`\n"
-                        f"➡️ **TP:** `{setup_data.get('TP', 'N/A')}`\n"
-                        f"➡️ **SL:** `{setup_data.get('SL', 'N/A')}`\n"
-                        f"➡️ **RR:** `{setup_data.get('RR', 'N/A')}`\n"
-                        f"➡️ **Reason:** {setup_data.get('Reason', 'N/A')}\n\n"
+                        f"📊 Trade Setup:\n"
+                        f"➡️ Pair: `{setup_data.get('Pair', 'N/A')}`\n"
+                        f"➡️ Position: `{setup_data.get('Position', 'N/A')}`\n"
+                        f"➡️ Entry: `{setup_data.get('Entry', 'N/A')}`\n"
+                        f"➡️ TP: `{setup_data.get('TP', 'N/A')}`\n"
+                        f"➡️ SL: `{setup_data.get('SL', 'N/A')}`\n"
+                        f"➡️ RR: `{setup_data.get('RR', 'N/A')}`\n"
+                        f"➡️ Reason: {setup_data.get('Reason', 'N/A')}\n\n"
                         f"_Important: This analysis is for educational purposes only and not financial advice._"
                     )
                 else: # id
                     reply_text = (
-                        f"📊 **Setup Trading:**\n"
-                        f"➡️ **Pair:** `{setup_data.get('Pair', 'N/A')}`\n"
-                        f"➡️ **Position:** `{setup_data.get('Position', 'N/A')}`\n"
-                        f"➡️ **Entry:** `{setup_data.get('Entry', 'N/A')}`\n"
-                        f"➡️ **TP:** `{setup_data.get('TP', 'N/A')}`\n"
-                        f"➡️ **SL:** `{setup_data.get('SL', 'N/A')}`\n"
-                        f"➡️ **RR:** `{setup_data.get('RR', 'N/A')}`\n"
-                        f"➡️ **Alasan:** {setup_data.get('Reason', 'N/A')}\n\n"
+                        f"📊 Setup Trading:\n"
+                        f"➡️ Pair: `{setup_data.get('Pair', 'N/A')}`\n"
+                        f"➡️ Position: `{setup_data.get('Position', 'N/A')}`\n"
+                        f"➡️ Entry: `{setup_data.get('Entry', 'N/A')}`\n"
+                        f"➡️ TP: `{setup_data.get('TP', 'N/A')}`\n"
+                        f"➡️ SL: `{setup_data.get('SL', 'N/A')}`\n"
+                        f"➡️ RR: `{setup_data.get('RR', 'N/A')}`\n"
+                        f"➡️ Alasan: {setup_data.get('Reason', 'N/A')}\n\n"
                         f"_Penting: Analisis ini murni bersifat edukatif dan bukan nasihat keuangan._"
                     )
         else: # general_analyze
