@@ -4,13 +4,15 @@ import re
 from dotenv import load_dotenv
 import telebot
 from flask import Flask, request
-from groq import Groq
+from groq import Groq # Keep if you still use Groq for text, otherwise remove
+import google.generativeai as genai # Import Google Generative AI
 
 # Load .env
 load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY") # Keep if you still use Groq for text, otherwise remove
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY") # New: Gemini API Key
 RENDER_EXTERNAL_HOSTNAME = os.getenv("RENDER_EXTERNAL_HOSTNAME")
 
 if not RENDER_EXTERNAL_HOSTNAME:
@@ -18,7 +20,19 @@ if not RENDER_EXTERNAL_HOSTNAME:
 WEBHOOK_URL = f"https://{RENDER_EXTERNAL_HOSTNAME}/webhook"
 
 bot = telebot.TeleBot(BOT_TOKEN, parse_mode="HTML")
-client = Groq(api_key=GROQ_API_KEY)
+
+# Initialize Groq client (if still used for text-only queries)
+client_groq = Groq(api_key=GROQ_API_KEY)
+
+# Initialize Gemini client for vision tasks
+if not GEMINI_API_KEY:
+    raise Exception("GEMINI_API_KEY not found. Make sure it's set in your .env file.")
+genai.configure(api_key=GEMINI_API_KEY)
+# You might want to use a specific model, e.g., 'gemini-1.5-flash' or 'gemini-2.5-flash'
+# For image analysis, 'gemini-1.5-flash' is often sufficient and cost-effective.
+# 'gemini-1.5-pro' offers higher quality but might be slower/pricier.
+vision_model = genai.GenerativeModel('gemini-1.5-flash') # Or 'gemini-1.5-pro' if preferred
+
 app = Flask(__name__)
 
 # --- Persistence for user_data (language and mode) ---
@@ -290,7 +304,8 @@ def handle_text(message):
         user_input = message.text
         current_system_prompt = BASE_SYSTEM_PROMPT_EN if lang == 'en' else BASE_SYSTEM_PROMPT_ID
 
-        completion = client.chat.completions.create(
+        # Use client_groq for text-only queries
+        completion = client_groq.chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=[
                 {"role": "system", "content": current_system_prompt},
@@ -317,15 +332,38 @@ def handle_photo(message):
         bot.reply_to(message, "Please select an analysis mode first (Setup Trade or General Analysis). Use /menu to choose." if lang == 'en' else "Mohon pilih mode analisis terlebih dahulu (Setup Trading atau Analisis Umum). Gunakan /menu untuk memilih.")
         return
 
+    # Indicate that the bot is processing the image
+    processing_message = bot.reply_to(message, "⏳ Processing image... This may take a moment." if lang == 'en' else "⏳ Memproses gambar... Ini mungkin memakan waktu sebentar.")
+
     try:
         caption = message.caption or ("Analyze this image?" if lang == 'en' else "Analisis Gambar Ini?")
         file_id = message.photo[-1].file_id
         file_info = bot.get_file(file_id)
-        file_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_info.file_path}"
+        
+        # Download the file directly from Telegram's servers
+        # This is generally more reliable than forming a URL and letting Gemini fetch it
+        downloaded_file = bot.download_file(file_info.file_path)
+
+        # Save the file temporarily to upload to Gemini File API
+        temp_file_path = f"temp_{file_id}.jpg"
+        with open(temp_file_path, 'wb') as f:
+            f.write(downloaded_file)
+
+        # Upload the image to Gemini File API
+        # Using a direct file upload is more robust for Gemini's vision models
+        uploaded_file = genai.upload_file(path=temp_file_path, display_name=f"chart_{file_id}")
+        
+        # Wait for the file to be active (ready for use)
+        # This is important for larger files or slower connections
+        print(f"Uploaded file '{uploaded_file.display_name}' ({uploaded_file.uri}). Waiting for it to become active...")
+        genai.wait_for_files([uploaded_file])
+        print(f"File {uploaded_file.display_name} is active.")
 
         # Determine the appropriate instruction text based on the current_mode
-        base_prompt = BASE_SYSTEM_PROMPT_EN if lang == 'en' else BASE_SYSTEM_PROMPT_ID
+        # System prompt for Gemini models is usually passed directly in the content array
+        # or as a "preamble" in certain models. For 1.5 Flash, it's typically part of the content.
         
+        # Adjusting the instruction based on the mode
         if current_mode == 'setup':
             instruction_text = SETUP_INSTRUCTION_EN if lang == 'en' else SETUP_INSTRUCTION_ID
         elif current_mode == 'general_analyze':
@@ -333,29 +371,42 @@ def handle_photo(message):
         else: # Fallback, should not happen if logic is sound
             instruction_text = "Please analyze this image." if lang == 'en' else "Tolong analisis gambar ini."
         
-        messages_content = [
-            {"type": "text", "text": f"{instruction_text}\n\n{caption}"},
-            {"type": "image_url", "image_url": {"url": file_url}}
+        # Combine base system prompt with specific instruction for image analysis
+        # For Gemini, it's often more effective to put the full instruction in the user prompt.
+        full_instruction_text = (BASE_SYSTEM_PROMPT_EN if lang == 'en' else BASE_SYSTEM_PROMPT_ID) + "\n\n" + instruction_text
+
+        contents = [
+            full_instruction_text, # The instruction text
+            uploaded_file # The uploaded image file
         ]
 
-        completion = client.chat.completions.create(
-            model="meta-llama/llama-4-scout-17b-16e-instruct",
-            messages=[
-                {"role": "system", "content": base_prompt},
-                {"role": "user", "content": messages_content}
-            ],
-            temperature=0.7,
-            max_completion_tokens=1024,
+        # Generate content using the Gemini vision model
+        gemini_response = vision_model.generate_content(
+            contents=contents,
+            safety_settings={
+                'HARASSMENT': 'BLOCK_NONE',
+                'HATE_SPEECH': 'BLOCK_NONE',
+                'SEXUALLY_EXPLICIT': 'BLOCK_NONE',
+                'DANGEROUS_CONTENT': 'BLOCK_NONE'
+            }
         )
         
-        raw_reply = completion.choices[0].message.content
+        # Delete the temporary file and the uploaded file from Gemini File API
+        os.remove(temp_file_path)
+        genai.delete_file(uploaded_file.name)
+        print(f"Cleaned up temporary file {temp_file_path} and Gemini uploaded file {uploaded_file.name}.")
+
+        raw_reply = gemini_response.text
 
         reply_text = ""
         if current_mode == 'setup':
-            json_match = re.search(r'\{.*\}', raw_reply, re.DOTALL)
-            
+            # Gemini might return markdown JSON, so we need to extract it
+            json_match = re.search(r'```json\s*(\{.*\})\s*```', raw_reply, re.DOTALL)
+            if not json_match:
+                json_match = re.search(r'\{.*\}', raw_reply, re.DOTALL) # Fallback if no markdown
+
             if json_match:
-                json_string = json_match.group(0)
+                json_string = json_match.group(1) if json_match.group(0).startswith('```json') else json_match.group(0)
                 try:
                     setup_data = json.loads(json_string)
                     if lang == 'en':
@@ -395,10 +446,16 @@ def handle_photo(message):
         else: # general_analyze
             reply_text = raw_reply
 
-        bot.reply_to(message, reply_text)
+        bot.edit_message_text(chat_id=chat_id, message_id=processing_message.message_id, text=reply_text)
 
     except Exception as e:
-        bot.reply_to(message, f"❌ Error analyzing image:\n{str(e)}" if lang == 'en' else f"❌ Error saat analisis gambar:\n{str(e)}")
+        bot.edit_message_text(chat_id=chat_id, message_id=processing_message.message_id, text=f"❌ Error analyzing image:\n{str(e)}" if lang == 'en' else f"❌ Error saat analisis gambar:\n{str(e)}")
+        # Ensure temporary file is removed even on error
+        if 'temp_file_path' in locals() and os.path.exists(temp_file_path):
+            os.remove(temp_file_path)
+        if 'uploaded_file' in locals() and uploaded_file.name:
+            genai.delete_file(uploaded_file.name)
+
 
 # ========= FLASK ROUTES =========
 @app.route("/")
