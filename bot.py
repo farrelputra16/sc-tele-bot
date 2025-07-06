@@ -90,13 +90,13 @@ BASE_SYSTEM_PROMPT_EN = (
     "If a user asks something outside the trading context, answer briefly or redirect them back to the trading topic."
 )
 
-# --- REVISED SETUP_INSTRUCTION_ID for SINGLE SIGNAL ---
-SETUP_INSTRUCTION_ID = (
-    "Tolong analisis gambar chart ini dengan cermat dan identifikasi **HANYA SATU potensi peluang trading terbaik yang memiliki probabilitas tertinggi dan Risk:Reward (RR) paling optimal**. " # TEKANKAN 'HANYA SATU' dan 'terbaik'
-    "Prioritaskan setup yang paling jelas dan akurat berdasarkan Smart Money Concept (SMC) dan analisis teknikal lanjutan. "
-    "Berikan detail sinyal ini dalam **format JSON murni berupa SATU OBJEK TUNGGAL**. " # TEKANKAN 'SATU OBJEK TUNGGAL'
-    "Pastikan semua nilai (Pair, Position, Entry, TP, SL, RR) relevan dan realistis sesuai dengan chart. "
-    "Jika suatu nilai tidak dapat ditentukan secara spesifik dari gambar, gunakan 'N/A'. "
+# --- NEW SETUP_INSTRUCTION for SWING TRADE ---
+SETUP_SWING_INSTRUCTION_ID = (
+    "Tolong analisis gambar chart ini dengan cermat dan identifikasi **HANYA SATU potensi peluang SWING trading terbaik yang memiliki probabilitas tertinggi dan Risk:Reward (RR) paling optimal**. "
+    "Fokus pada timeframe H4 atau H1. Cari setup berdasarkan Smart Money Concept (SMC) dan analisis teknikal lanjutan yang cocok untuk posisi yang dipegang beberapa jam hingga beberapa hari. "
+    "Berikan detail sinyal ini dalam **format JSON murni berupa SATU OBJEK TUNGGAL**. "
+    "Pastikan semua nilai (Pair, Position, Entry, TP, SL, RR) relevan dan realistis sesuai dengan chart."
+    "Jika suatu nilai tidak dapat ditentukan secara spesifik dari gambar, gunakan 'N/A'."
     "Hitung Risk:Reward (RR) dengan presisi dua desimal."
     "Output harus dimulai dan diakhiri dengan **SATU BLOK JSON TUNGGAL**, tanpa teks pengantar, penutup, atau penjelasan lainnya di luar JSON. "
     "Contoh format:\n"
@@ -115,14 +115,13 @@ SETUP_INSTRUCTION_ID = (
     "**Penting:** Analisis ini murni bersifat edukatif dan teknikal, berdasarkan data chart yang Anda berikan. Ini BUKAN nasihat keuangan atau ajakan untuk berinvestasi. Keputusan trading sepenuhnya tanggung jawab pengguna."
 )
 
-# --- REVISED SETUP_INSTRUCTION_EN for SINGLE SIGNAL ---
-SETUP_INSTRUCTION_EN = (
-    "Please meticulously analyze this chart image and identify **ONLY ONE potential trading opportunity that has the highest probability and the most optimal Risk:Reward (RR)**. " # EMPHASIZE 'ONLY ONE' and 'best'
-    "Prioritize the clearest and most accurate setup based on Smart Money Concept (SMC) and advanced technical analysis. "
-    "Provide this signal's details in **pure JSON format as a SINGLE OBJECT**. " # EMPHASIZE 'SINGLE OBJECT'
-    "Ensure all values (Pair, Position, Entry, TP, SL, RR) are relevant and realistic according to the chart. "
-    "If a value cannot be specifically determined from the image, use 'N/A'. "
-    "Calculate Risk:Reward (RR) with two decimal precision. "
+SETUP_SWING_INSTRUCTION_EN = (
+    "Please meticulously analyze this chart image and identify **ONLY ONE potential SWING trading opportunity that has the highest probability and the most optimal Risk:Reward (RR)**. "
+    "Focus on H4 or H1 timeframes. Look for setups based on Smart Money Concept (SMC) and advanced technical analysis suitable for positions held for several hours to days. "
+    "Provide this signal's details in **pure JSON format as a SINGLE OBJECT**. "
+    "Ensure all values (Pair, Position, Entry, TP, SL, RR) are relevant and realistic according to the chart."
+    "If a value cannot be specifically determined from the image, use 'N/A'."
+    "Calculate Risk:Reward (RR) with two decimal precision."
     "The output must start and end with a **SINGLE JSON BLOCK**, with no introductory, concluding, or other explanatory text outside the JSON. "
     "Example format:\n"
     "```json\n"
@@ -140,19 +139,71 @@ SETUP_INSTRUCTION_EN = (
     "**Important:** This analysis is purely educational and technical, based on the chart data you provide. It is NOT financial advice or an inducement to invest. Trading decisions are solely the user's responsibility."
 )
 
+# --- NEW SETUP_INSTRUCTION for SCALP TRADE ---
+SETUP_SCALP_INSTRUCTION_ID = (
+    "Tolong analisis gambar chart ini dengan cermat dan identifikasi **HANYA SATU potensi peluang SCALP trading terbaik yang memiliki probabilitas tertinggi dan Risk:Reward (RR) paling optimal**. "
+    "Fokus pada timeframe M30, M15, atau M5. Cari setup berdasarkan Smart Money Concept (SMC) dan analisis teknikal lanjutan yang cocok untuk posisi yang dipegang menit hingga beberapa jam. "
+    "Berikan detail sinyal ini dalam **format JSON murni berupa SATU OBJEK TUNGGAL**. "
+    "Pastikan semua nilai (Pair, Position, Entry, TP, SL, RR) relevan dan realistis sesuai dengan chart."
+    "Jika suatu nilai tidak dapat ditentukan secara spesifik dari gambar, gunakan 'N/A'."
+    "Hitung Risk:Reward (RR) dengan presisi dua desimal."
+    "Output harus dimulai dan diakhiri dengan **SATU BLOK JSON TUNGGAL**, tanpa teks pengantar, penutup, atau penjelasan lainnya di luar JSON. "
+    "Contoh format:\n"
+    "```json\n"
+    "{\n"
+    "  \"Pair\": \"<Nama Pair/Aset>\",\n"
+    "  \"Position\": \"<Long/Short>\",\n"
+    "  \"Entry\": \"<Harga Entry>\",\n"
+    "  \"TP\": \"<Harga Take Profit>\",\n"
+    "  \"SL\": \"<Harga Stop Loss>\",\n"
+    "  \"RR\": \"<Rasio Risk:Reward (misal: 1:3.5)>\",\n"
+    "  \"Reason\": \"<Penjelasan singkat alasan analisis/sinyal berdasarkan konsep SMC atau teknikal lain>\"\n"
+    "}\n"
+    "```\n"
+    "Output Anda harus murni JSON, tanpa markdown code block backticks ````json` atau teks apapun di luar blok JSON. "
+    "**Penting:** Analisis ini murni bersifat edukatif dan teknikal, berdasarkan data chart yang Anda berikan. Ini BUKAN nasihat keuangan atau ajakan untuk berinvestasi. Keputusan trading sepenuhnya tanggung jawab pengguna."
+)
+
+SETUP_SCALP_INSTRUCTION_EN = (
+    "Please meticulously analyze this chart image and identify **ONLY ONE potential SCALP trading opportunity that has the highest probability and the most optimal Risk:Reward (RR)**. "
+    "Focus on M30, M15, or M5 timeframes. Look for setups based on Smart Money Concept (SMC) and advanced technical analysis suitable for positions held for minutes to a few hours. "
+    "Provide this signal's details in **pure JSON format as a SINGLE OBJECT**. "
+    "Ensure all values (Pair, Position, Entry, TP, SL, RR) are relevant and realistic according to the chart."
+    "If a value cannot be specifically determined from the image, use 'N/A'."
+    "Calculate Risk:Reward (RR) with two decimal precision."
+    "The output must start and end with a **SINGLE JSON BLOCK**, with no introductory, concluding, or other explanatory text outside the JSON. "
+    "Example format:\n"
+    "```json\n"
+    "{\n"
+    "  \"Pair\": \"<Asset/Pair Name>\",\n"
+    "  \"Position\": \"<Long/Short>\",\n"
+    "  \"Entry\": \"<Entry Price>\",\n"
+    "  \"TP\": \"<Take Profit Price>\",\n"
+    "  \"SL\": \"<Stop Loss Price>\",\n"
+    "  \"RR\": \"<Risk:Reward Ratio (e.g., 1:3.5)>\",\n"
+    "  \"Reason\": \"<Brief explanation for the analysis/signal based on SMC or other technical concepts>\"\n"
+    "}\n"
+    "```\n"
+    "Your output must be pure JSON, without markdown code block backticks ````json` or any text outside the JSON block. "
+    "**Important:** This analysis is purely educational and technical, based on the chart data you provide. It is NOT financial advice or an inducement to invest. Trading decisions are solely the user's responsibility."
+)
+
+# --- REVISED ANALYZE_INSTRUCTION (Straight to the Point) ---
 ANALYZE_INSTRUCTION_ID = (
-    "Tolong analisis gambar chart ini secara komprehensif dan identifikasi area-area penting seperti order block, liquidity pool, FVG, support/resistance, atau trendline. "
-    "Jelaskan secara mendalam potensi pergerakan harga di masa depan berdasarkan identifikasi area-area tersebut. "
-    "Fokus pada penjelasan teknikal murni dengan akurasi tinggi. "
-    "Jangan berikan sinyal trading spesifik (Entry, TP, SL) atau rekomendasi beli/jual, melainkan fokus pada interpretasi kondisi pasar dari perspektif teknikal. "
+    "Tolong analisis gambar chart ini secara ringkas dan langsung ke inti. "
+    "Identifikasi area-area penting seperti order block, liquidity pool, FVG, support/resistance, atau trendline. "
+    "Jelaskan secara singkat potensi pergerakan harga di masa depan berdasarkan area-area tersebut. "
+    "Fokus pada penjelasan teknikal murni, singkat, dan padat. "
+    "Jangan berikan sinyal trading spesifik (Entry, TP, SL) atau rekomendasi beli/jual. "
     "**Penting:** Analisis ini murni bersifat edukatif dan teknikal, berdasarkan data chart yang Anda berikan. Ini BUKAN nasihat keuangan atau ajakan untuk berinvestasi. Keputusan trading sepenuhnya tanggung jawab pengguna."
 )
 
 ANALYZE_INSTRUCTION_EN = (
-    "Please comprehensively analyze this chart image and identify important areas such as order blocks, liquidity pools, FVGs, support/resistance, or trendlines. "
-    "Explain in detail potential future price movements based on the identification of these areas. "
-    "Focus on purely technical explanations with high accuracy. "
-    "Do not provide specific trading signals (Entry, TP, SL) or buy/sell recommendations. Instead, focus on interpreting market conditions from a technical perspective. "
+    "Please analyze this chart image concisely and straight to the point. "
+    "Identify important areas such as order blocks, liquidity pools, FVGs, support/resistance, or trendlines. "
+    "Briefly explain potential future price movements based on these areas. "
+    "Focus on pure, concise, and direct technical explanations. "
+    "Do not provide specific trading signals (Entry, TP, SL) or buy/sell recommendations. "
     "**Important:** This analysis is purely educational and technical, based on the chart data you provide. It is NOT financial advice or an inducement to invest. Trading decisions are solely the user's responsibility."
 )
 
@@ -173,18 +224,37 @@ def get_main_options_keyboard(lang):
         keyboard.add(
             telebot.types.InlineKeyboardButton("📚 Learn (Text)", callback_data="set_mode_learn")
         )
+        # Nested keyboard for Setup Trade
+        keyboard.add(telebot.types.InlineKeyboardButton("⚙️ Setup Trade (Image)", callback_data="show_setup_options_en"))
         keyboard.add(
-            telebot.types.InlineKeyboardButton("⚙️ Setup Trade (Image)", callback_data="command_setup"),
             telebot.types.InlineKeyboardButton("📈 General Analysis (Image)", callback_data="command_analyze")
         )
     else: # id
         keyboard.add(
             telebot.types.InlineKeyboardButton("📚 Belajar (Teks)", callback_data="set_mode_learn")
         )
+        # Nested keyboard for Setup Trading
+        keyboard.add(telebot.types.InlineKeyboardButton("⚙️ Setup Trading (Gambar)", callback_data="show_setup_options_id"))
         keyboard.add(
-            telebot.types.InlineKeyboardButton("⚙️ Setup Trading (Gambar)", callback_data="command_setup"),
             telebot.types.InlineKeyboardButton("📈 Analisis Umum (Gambar)", callback_data="command_analyze")
         )
+    return keyboard
+
+def get_setup_options_keyboard(lang):
+    """Returns an inline keyboard for Setup Trade sub-options (Swing/Scalp)."""
+    keyboard = telebot.types.InlineKeyboardMarkup()
+    if lang == 'en':
+        keyboard.add(
+            telebot.types.InlineKeyboardButton("📊 Swing Trade (H4/H1)", callback_data="set_mode_setup_swing"),
+            telebot.types.InlineKeyboardButton("🔪 Scalp Trade (M30/M15/M5)", callback_data="set_mode_setup_scalp")
+        )
+        keyboard.add(telebot.types.InlineKeyboardButton("⬅️ Back to Main Menu", callback_data="back_to_main_menu"))
+    else: # id
+        keyboard.add(
+            telebot.types.InlineKeyboardButton("📊 Swing Trading (H4/H1)", callback_data="set_mode_setup_swing"),
+            telebot.types.InlineKeyboardButton("🔪 Scalp Trading (M30/M15/M5)", callback_data="set_mode_setup_scalp")
+        )
+        keyboard.add(telebot.types.InlineKeyboardButton("⬅️ Kembali ke Menu Utama", callback_data="back_to_main_menu"))
     return keyboard
 
 # ========== COMMAND HANDLERS ==========
@@ -194,7 +264,7 @@ def send_welcome_or_menu(message):
     chat_id = str(message.chat.id)
 
     if chat_id not in user_data:
-        user_data[chat_id] = {'lang': 'en', 'mode': 'learn'} # Default mode
+        user_data[chat_id] = {'lang': 'en', 'mode': 'learn', 'sub_mode': None} # Default mode, add sub_mode
         save_user_data(user_data)
 
     lang = user_data[chat_id]['lang']
@@ -211,43 +281,34 @@ def send_language_menu(message):
     """Sends the language selection menu."""
     chat_id = str(message.chat.id)
     if chat_id not in user_data:
-        user_data[chat_id] = {'lang': 'en', 'mode': 'learn'}
+        user_data[chat_id] = {'lang': 'en', 'mode': 'learn', 'sub_mode': None}
         save_user_data(user_data)
 
     lang = user_data[chat_id]['lang']
     text = "Please choose your language:" if lang == 'en' else "Silakan pilih bahasa Anda:"
     bot.send_message(chat_id, text, reply_markup=get_language_keyboard())
 
-@bot.message_handler(commands=['setup'])
-def set_mode_setup_command(message):
-    """Sets the bot mode to 'setup' for trade signal generation."""
-    chat_id = str(message.chat.id)
-    if chat_id not in user_data:
-        user_data[chat_id] = {'lang': 'en', 'mode': 'learn'}
-    user_data[chat_id]['mode'] = 'setup'
-    save_user_data(user_data)
-    lang = user_data[chat_id]['lang']
-    msg = "You are now in **Setup Trade** mode. Send me a chart image for signal generation!" if lang == 'en' \
-          else "Anda sekarang dalam mode **Setup Trading**. Kirimkan gambar chart untuk menghasilkan sinyal!"
-    bot.send_message(chat_id, msg)
-
+# --- Modified Command Handlers for Analysis Modes ---
+# These handlers now primarily set the 'mode' and display further options if needed.
 @bot.message_handler(commands=['analyze'])
 def set_mode_general_analyze_command(message):
-    """Sets the bot mode to 'general_analyze' for general chart analysis."""
     chat_id = str(message.chat.id)
     if chat_id not in user_data:
-        user_data[chat_id] = {'lang': 'en', 'mode': 'learn'}
+        user_data[chat_id] = {'lang': 'en', 'mode': 'learn', 'sub_mode': None}
     user_data[chat_id]['mode'] = 'general_analyze'
+    user_data[chat_id]['sub_mode'] = None # Clear sub-mode
     save_user_data(user_data)
     lang = user_data[chat_id]['lang']
     msg = "You are now in **General Analysis** mode. Send me a chart image for market movement analysis!" if lang == 'en' \
           else "Anda sekarang dalam mode **Analisis Umum**. Kirimkan gambar chart untuk analisis pergerakan pasar!"
     bot.send_message(chat_id, msg)
 
+# Removed /setup command handler, as it's now handled by inline button callback.
+# The actual mode setting (setup_swing / setup_scalp) is done via callback.
+
 # ========== CALLBACK QUERY HANDLERS ==========
 @bot.callback_query_handler(func=lambda call: call.data.startswith('set_lang_'))
 def set_language_callback(call):
-    """Handles language selection from inline keyboard."""
     chat_id = str(call.message.chat.id)
     lang = call.data.split('_')[2]
     user_data[chat_id]['lang'] = lang
@@ -258,47 +319,76 @@ def set_language_callback(call):
     send_welcome_or_menu(call.message) # Show main options after language is set
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('set_mode_'))
-def set_mode_callback(call):
-    """Handles mode selection (currently only 'learn') from inline keyboard."""
+def set_mode_callback(call): # This now handles 'learn', 'setup_swing', 'setup_scalp'
     chat_id = str(call.message.chat.id)
-    mode = call.data.split('_')[2]
-    user_data[chat_id]['mode'] = mode
+    parts = call.data.split('_')
+    mode = parts[2] # 'learn'
+    
+    if len(parts) > 3: # Check for sub-mode, e.g., 'set_mode_setup_swing'
+        user_data[chat_id]['mode'] = 'setup' # Parent mode for swing/scalp
+        user_data[chat_id]['sub_mode'] = parts[3] # 'swing' or 'scalp'
+    else:
+        user_data[chat_id]['mode'] = mode
+        user_data[chat_id]['sub_mode'] = None
+
     save_user_data(user_data)
     lang = user_data[chat_id]['lang']
 
-    if mode == 'learn':
+    msg = ""
+    if user_data[chat_id]['mode'] == 'learn':
         msg = "You are now in **Learn** mode. Send me your text queries about trading!" if lang == 'en' \
               else "Anda sekarang dalam mode **Belajar**. Kirimkan pertanyaan teks Anda tentang trading!"
+    elif user_data[chat_id]['mode'] == 'setup':
+        if user_data[chat_id]['sub_mode'] == 'swing':
+            msg = "You are now in **Swing Trade** mode. Send a chart image (H4/H1 preferred) for signal generation!" if lang == 'en' \
+                  else "Anda sekarang dalam mode **Swing Trading**. Kirim gambar chart (disarankan H4/H1) untuk menghasilkan sinyal!"
+        elif user_data[chat_id]['sub_mode'] == 'scalp':
+            msg = "You are now in **Scalp Trade** mode. Send a chart image (M30/M15/M5 preferred) for signal generation!" if lang == 'en' \
+                  else "Anda sekarang dalam mode **Scalp Trading**. Kirim gambar chart (disarankan M30/M15/M5) untuk menghasilkan sinyal!"
     else:
         msg = "Invalid mode selected." if lang == 'en' else "Mode tidak valid."
     
     bot.edit_message_text(chat_id=chat_id, message_id=call.message.message_id, text=msg)
+    bot.answer_callback_query(call.id) # Acknowledge the button press
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('command_'))
 def handle_command_buttons(call):
-    """Handles command buttons (e.g., 'setup', 'analyze') by simulating commands."""
     chat_id = str(call.message.chat.id)
-    command_name = call.data.split('_')[1]
+    command_name = call.data.split('_')[1] # 'analyze'
 
-    # Simulate typing the command to trigger actual command handlers
-    if command_name == 'setup':
-        call.message.text = '/setup'
-        set_mode_setup_command(call.message)
-    elif command_name == 'analyze':
+    if command_name == 'analyze':
         call.message.text = '/analyze'
         set_mode_general_analyze_command(call.message)
     
     bot.answer_callback_query(call.id) # Acknowledge the button press
 
+@bot.callback_query_handler(func=lambda call: call.data.startswith('show_setup_options_'))
+def show_setup_options(call):
+    chat_id = str(call.message.chat.id)
+    lang = call.data.split('_')[3] # 'en' or 'id'
+    
+    bot.edit_message_text(chat_id=chat_id, message_id=call.message.message_id,
+                          text="Choose your trade style:" if lang == 'en' else "Pilih gaya trading Anda:",
+                          reply_markup=get_setup_options_keyboard(lang))
+    bot.answer_callback_query(call.id)
+
+@bot.callback_query_handler(func=lambda call: call.data == 'back_to_main_menu')
+def back_to_main_menu_callback(call):
+    chat_id = str(call.message.chat.id)
+    lang = user_data.get(chat_id, {'lang': 'en'})['lang']
+    menu_text = "What would you like to do?" if lang == 'en' else "Apa yang ingin Anda lakukan?"
+    bot.edit_message_text(chat_id=chat_id, message_id=call.message.message_id,
+                          text=menu_text, reply_markup=get_main_options_keyboard(lang))
+    bot.answer_callback_query(call.id)
+
 # ========== TEXT HANDLER ==========
 @bot.message_handler(func=lambda m: m.content_type == 'text')
 def handle_text(message):
-    """Handles text messages, primarily in 'learn' mode using Groq."""
     chat_id = str(message.chat.id)
     chat_type = message.chat.type
     bot_username = bot.get_me().username.lower()
 
-    user_settings = user_data.get(chat_id, {'lang': 'en', 'mode': 'learn'})
+    user_settings = user_data.get(chat_id, {'lang': 'en', 'mode': 'learn', 'sub_mode': None})
     lang = user_settings['lang']
     mode = user_settings['mode']
 
@@ -307,7 +397,6 @@ def handle_text(message):
         bot.reply_to(message, "Please switch to **Learn** mode to send text queries. Use /menu to change." if lang == 'en' else "Mohon beralih ke mode **Belajar** untuk mengirim pertanyaan teks. Gunakan /menu untuk mengubahnya.")
         return
 
-    # Handle group chats: only respond if mentioned or replied to
     if chat_type in ["group", "supergroup"]:
         is_mentioned = any(
             entity.type == "mention" and message.text[entity.offset:entity.offset + entity.length].lower() == f"@{bot_username}"
@@ -322,7 +411,6 @@ def handle_text(message):
         user_input = message.text
         current_system_prompt = BASE_SYSTEM_PROMPT_EN if lang == 'en' else BASE_SYSTEM_PROMPT_ID
 
-        # Use client_groq for text-only queries
         completion = client_groq.chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=[
@@ -340,15 +428,20 @@ def handle_text(message):
 # ========== IMAGE HANDLER ==========
 @bot.message_handler(content_types=["photo"])
 def handle_photo(message):
-    """Handles photo messages for chart analysis using Google Gemini."""
     chat_id = str(message.chat.id)
-    user_settings = user_data.get(chat_id, {'lang': 'en', 'mode': 'learn'})
+    user_settings = user_data.get(chat_id, {'lang': 'en', 'mode': 'learn', 'sub_mode': None})
     lang = user_settings['lang']
     current_mode = user_settings['mode']
+    current_sub_mode = user_settings['sub_mode'] # Get sub-mode
 
     # Check if in a valid analysis mode for images
     if current_mode not in ['setup', 'general_analyze']:
         bot.reply_to(message, "Please select an analysis mode first (Setup Trade or General Analysis). Use /menu to choose." if lang == 'en' else "Mohon pilih mode analisis terlebih dahulu (Setup Trading atau Analisis Umum). Gunakan /menu untuk memilih.")
+        return
+    
+    # If in 'setup' mode, but no sub_mode is chosen yet, ask them to choose
+    if current_mode == 'setup' and not current_sub_mode:
+        bot.reply_to(message, "Please choose a trading style first (Swing or Scalp) for signal generation. Use the 'Setup Trade' button in /menu." if lang == 'en' else "Mohon pilih gaya trading terlebih dahulu (Swing atau Scalp) untuk menghasilkan sinyal. Gunakan tombol 'Setup Trading' di /menu.")
         return
 
     # Indicate that the bot is processing the image
@@ -362,35 +455,37 @@ def handle_photo(message):
         file_id = message.photo[-1].file_id
         file_info = bot.get_file(file_id)
         
-        # Download the file directly from Telegram's servers
         downloaded_file = bot.download_file(file_info.file_path)
 
-        # Save the file temporarily to upload to Gemini File API
         temp_file_path = f"temp_{file_id}.jpg"
         with open(temp_file_path, 'wb') as f:
             f.write(downloaded_file)
 
-        # Upload the image to Gemini File API
         uploaded_file = genai.upload_file(path=temp_file_path, display_name=f"chart_{file_id}")
         
-        # Check whether the file is ready to be used.
         print(f"Uploaded file '{uploaded_file.display_name}' ({uploaded_file.uri}). Waiting for it to become active...")
         while uploaded_file.state.name == "PROCESSING":
-            print('.', end='', flush=True) # Print dot and flush output immediately
-            time.sleep(1) # Wait for 1 second before re-checking
-            uploaded_file = genai.get_file(uploaded_file.name) # Get updated file status
+            print('.', end='', flush=True)
+            time.sleep(1)
+            uploaded_file = genai.get_file(uploaded_file.name)
 
         if uploaded_file.state.name == "FAILED":
             raise ValueError("File processing failed on Gemini side. Please try again.")
         
         print(f"\nFile {uploaded_file.display_name} is active.")
 
-        # Determine the appropriate instruction text based on the current_mode
+        # --- Determine the appropriate instruction text based on current_mode and sub_mode ---
+        full_instruction_text = ""
         if current_mode == 'setup':
-            full_instruction_text = SETUP_INSTRUCTION_EN if lang == 'en' else SETUP_INSTRUCTION_ID
+            if current_sub_mode == 'swing':
+                full_instruction_text = SETUP_SWING_INSTRUCTION_EN if lang == 'en' else SETUP_SWING_INSTRUCTION_ID
+            elif current_sub_mode == 'scalp':
+                full_instruction_text = SETUP_SCALP_INSTRUCTION_EN if lang == 'en' else SETUP_SCALP_INSTRUCTION_ID
+            else: # Should not happen if logic is correct, but as a fallback
+                full_instruction_text = SETUP_SWING_INSTRUCTION_EN if lang == 'en' else SETUP_SWING_INSTRUCTION_ID
         elif current_mode == 'general_analyze':
             full_instruction_text = ANALYZE_INSTRUCTION_EN if lang == 'en' else ANALYZE_INSTRUCTION_ID
-        else: # Fallback, should not happen if logic is sound
+        else: # Fallback
             full_instruction_text = "Please analyze this image with high accuracy, focusing on technical aspects. This is for educational purposes only and not financial advice." if lang == 'en' else "Tolong analisis gambar ini dengan akurasi tinggi, fokus pada aspek teknikal. Ini hanya untuk tujuan edukasi dan bukan nasihat keuangan."
 
         contents = [
@@ -399,13 +494,11 @@ def handle_photo(message):
         ]
 
         # Configure generation settings to constrain output
-        # max_output_tokens is key here to limit verbosity and multiple signals
         generation_config = genai.types.GenerationConfig(
             temperature=0.7,
             max_output_tokens=300 # Reduced to encourage concise, single-signal output
         )
 
-        # Generate content using the Gemini vision model with explicit safety settings
         gemini_response = vision_model.generate_content(
             contents=contents,
             safety_settings={
@@ -414,11 +507,10 @@ def handle_photo(message):
                 HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
                 HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE
             },
-            generation_config=generation_config # Add the generation config here
+            generation_config=generation_config
         )
         
         raw_reply = ""
-        # Check if any candidate was returned, if not, it was blocked
         if not gemini_response.candidates:
             block_reason_feedback = "UNKNOWN_REASON"
             if gemini_response.prompt_feedback and gemini_response.prompt_feedback.block_reason:
@@ -435,29 +527,22 @@ def handle_photo(message):
                     f"API Gemini tidak mengembalikan hasil dan diblokir karena alasan: {block_reason_feedback}."
                 )
         else:
-            raw_reply = gemini_response.text # Get the text from the successful candidate
+            raw_reply = gemini_response.text
 
         reply_text = ""
         if current_mode == 'setup':
-            # Updated regex to specifically look for a single JSON object or an array of objects
-            # and clean up surrounding non-JSON characters like `⁠ `
-            
-            # First, try to find a JSON code block (```json {...} ``` or ```json [{...},{...}] ```)
             json_match = re.search(r'```json\s*([\[\{].*?[\]\}])\s*```', raw_reply, re.DOTALL)
             json_string = None
 
             if json_match:
                 json_string = json_match.group(1).strip()
             else:
-                # Fallback: if no markdown block, try to find a direct JSON object or array
                 clean_raw_reply = re.sub(r'^[^{[]*|[^}\]]*$', '', raw_reply.strip())
                 if clean_raw_reply.startswith('{') and clean_raw_reply.endswith('}'):
                     json_string = clean_raw_reply
                 elif clean_raw_reply.startswith('[') and clean_raw_reply.endswith(']'):
                     json_string = clean_raw_reply
                 else:
-                    # Final attempt: try to extract just the first object if it's not a proper array or single object
-                    # This handles the "{obj1},{obj2}" case by trying to parse each individually
                     potential_objects = re.findall(r'\{[^}]*?\}', clean_raw_reply, re.DOTALL)
                     if potential_objects:
                         json_string = potential_objects[0] # Take the first detected object
@@ -467,12 +552,12 @@ def handle_photo(message):
             if json_string:
                 try:
                     parsed_json = json.loads(json_string)
-                    if isinstance(parsed_json, list): # If it's an array, take the first item
+                    if isinstance(parsed_json, list):
                         if parsed_json:
                             setup_data = parsed_json[0]
                         else:
                             raise json.JSONDecodeError("JSON array is empty.", json_string, 0)
-                    elif isinstance(parsed_json, dict): # If it's a single object
+                    elif isinstance(parsed_json, dict):
                         setup_data = parsed_json
                     else:
                         raise json.JSONDecodeError("Parsed JSON is not an object or array.", json_string, 0)
@@ -491,28 +576,29 @@ def handle_photo(message):
                                    f"Respon AI mentah:\n`{raw_reply}`")
             
             if setup_data:
+                # Bold the section title for better readability
                 if lang == 'en':
                     reply_text = (
-                        f"📊 Trade Setup:\n"
-                        f"➡️ Pair: `{setup_data.get('Pair', 'N/A')}`\n"
-                        f"➡️ Position: `{setup_data.get('Position', 'N/A')}`\n"
-                        f"➡️ Entry: `{setup_data.get('Entry', 'N/A')}`\n"
-                        f"➡️ TP: `{setup_data.get('TP', 'N/A')}`\n"
-                        f"➡️ SL: `{setup_data.get('SL', 'N/A')}`\n"
-                        f"➡️ RR: `{setup_data.get('RR', 'N/A')}`\n"
-                        f"➡️ Reason: {setup_data.get('Reason', 'N/A')}\n\n"
+                        f"📊 **Trade Setup ({current_sub_mode.capitalize()}):**\n" # Add sub-mode to title
+                        f"➡️ **Pair:** `{setup_data.get('Pair', 'N/A')}`\n"
+                        f"➡️ **Position:** `{setup_data.get('Position', 'N/A')}`\n"
+                        f"➡️ **Entry:** `{setup_data.get('Entry', 'N/A')}`\n"
+                        f"➡️ **TP:** `{setup_data.get('TP', 'N/A')}`\n"
+                        f"➡️ **SL:** `{setup_data.get('SL', 'N/A')}`\n"
+                        f"➡️ **RR:** `{setup_data.get('RR', 'N/A')}`\n"
+                        f"➡️ **Reason:** {setup_data.get('Reason', 'N/A')}\n\n"
                         f"_Important: This analysis is for educational purposes only and not financial advice._"
                     )
                 else: # id
                     reply_text = (
-                        f"📊 Setup Trading:\n"
-                        f"➡️ Pair: `{setup_data.get('Pair', 'N/A')}`\n"
-                        f"➡️ Position: `{setup_data.get('Position', 'N/A')}`\n"
-                        f"➡️ Entry: `{setup_data.get('Entry', 'N/A')}`\n"
-                        f"➡️ TP: `{setup_data.get('TP', 'N/A')}`\n"
-                        f"➡️ SL: `{setup_data.get('SL', 'N/A')}`\n"
-                        f"➡️ RR: `{setup_data.get('RR', 'N/A')}`\n"
-                        f"➡️ Alasan: {setup_data.get('Reason', 'N/A')}\n\n"
+                        f"📊 **Setup Trading ({current_sub_mode.capitalize()}):**\n" # Add sub-mode to title
+                        f"➡️ **Pair:** `{setup_data.get('Pair', 'N/A')}`\n"
+                        f"➡️ **Position:** `{setup_data.get('Position', 'N/A')}`\n"
+                        f"➡️ **Entry:** `{setup_data.get('Entry', 'N/A')}`\n"
+                        f"➡️ **TP:** `{setup_data.get('TP', 'N/A')}`\n"
+                        f"➡️ **SL:** `{setup_data.get('SL', 'N/A')}`\n"
+                        f"➡️ **RR:** `{setup_data.get('RR', 'N/A')}`\n"
+                        f"➡️ **Alasan:** {setup_data.get('Reason', 'N/A')}\n\n"
                         f"_Penting: Analisis ini murni bersifat edukatif dan bukan nasihat keuangan._"
                     )
         else: # general_analyze
