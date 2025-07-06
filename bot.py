@@ -1,37 +1,41 @@
 import os
 import json
 import re
+import time # Import for time.sleep
 from dotenv import load_dotenv
 import telebot
 from flask import Flask, request
-from groq import Groq # Keep if you still use Groq for text, otherwise remove
-import google.generativeai as genai # Import Google Generative AI
+from groq import Groq
+import google.generativeai as genai
 
 # Load .env
 load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-GROQ_API_KEY = os.getenv("GROQ_API_KEY") # Keep if you still use Groq for text, otherwise remove
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY") # New: Gemini API Key
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY") # Gemini API Key
 RENDER_EXTERNAL_HOSTNAME = os.getenv("RENDER_EXTERNAL_HOSTNAME")
 
+# Validate environment variables
+if not BOT_TOKEN:
+    raise Exception("BOT_TOKEN not found. Make sure Telegram Bot Token is set in .env.")
+if not GROQ_API_KEY:
+    raise Exception("GROQ_API_KEY not found. Make sure Groq API Key is set in .env.")
+if not GEMINI_API_KEY:
+    raise Exception("GEMINI_API_KEY not found. Make sure Gemini API Key is set in .env.")
 if not RENDER_EXTERNAL_HOSTNAME:
     raise Exception("RENDER_EXTERNAL_HOSTNAME not found. Make sure Render environment variable is set.")
+
 WEBHOOK_URL = f"https://{RENDER_EXTERNAL_HOSTNAME}/webhook"
 
 bot = telebot.TeleBot(BOT_TOKEN, parse_mode="HTML")
 
-# Initialize Groq client (if still used for text-only queries)
+# Initialize Groq client for text-only queries
 client_groq = Groq(api_key=GROQ_API_KEY)
 
 # Initialize Gemini client for vision tasks
-if not GEMINI_API_KEY:
-    raise Exception("GEMINI_API_KEY not found. Make sure it's set in your .env file.")
 genai.configure(api_key=GEMINI_API_KEY)
-# You might want to use a specific model, e.g., 'gemini-1.5-flash' or 'gemini-2.5-flash'
-# For image analysis, 'gemini-1.5-flash' is often sufficient and cost-effective.
-# 'gemini-1.5-pro' offers higher quality but might be slower/pricier.
-vision_model = genai.GenerativeModel('gemini-1.5-flash') # Or 'gemini-1.5-pro' if preferred
+vision_model = genai.GenerativeModel('gemini-1.5-flash') # Or 'gemini-1.5-pro' for higher quality/cost
 
 app = Flask(__name__)
 
@@ -39,6 +43,7 @@ app = Flask(__name__)
 USER_DATA_FILE = "user_data.json"
 
 def load_user_data():
+    """Loads user data from a JSON file."""
     if os.path.exists(USER_DATA_FILE):
         with open(USER_DATA_FILE, 'r') as f:
             try:
@@ -49,13 +54,13 @@ def load_user_data():
     return {}
 
 def save_user_data(data):
+    """Saves user data to a JSON file."""
     with open(USER_DATA_FILE, 'w') as f:
         json.dump(data, f, indent=4)
 
 user_data = load_user_data()
 
 # ========== SYSTEM PROMPTS ==========
-# Base system prompt for general trading expertise
 BASE_SYSTEM_PROMPT_ID = (
     "Kamu adalah asisten pribadi ahli trading berpengalaman lebih dari 10 tahun. "
     "Kuasai semua aspek trading crypto, forex, saham, dan komoditas. "
@@ -84,7 +89,6 @@ BASE_SYSTEM_PROMPT_EN = (
     "If a user asks something outside the trading context, answer briefly or redirect them back to the trading topic."
 )
 
-# Specific instruction for structured setup analysis (now part of content array)
 SETUP_INSTRUCTION_ID = (
     "Tolong analisis gambar chart ini dan identifikasi peluang trading. "
     "Berikan detail sinyal dalam format JSON murni. "
@@ -127,7 +131,6 @@ SETUP_INSTRUCTION_EN = (
     "Your output must be pure JSON, without markdown code block backticks ````json` or any text outside the JSON block."
 )
 
-# Specific instruction for general analysis (now part of content array)
 ANALYZE_INSTRUCTION_ID = (
     "Tolong analisis gambar chart ini dan identifikasi area-area penting seperti order block, liquidity pool, FVG, support/resistance, atau trendline. "
     "Jelaskan potensi pergerakan harga di masa depan berdasarkan area-area tersebut. "
@@ -142,9 +145,9 @@ ANALYZE_INSTRUCTION_EN = (
     "Focus purely on technical explanations."
 )
 
-
 # ========== KEYBOARD MARKUPS ==========
 def get_language_keyboard():
+    """Returns an inline keyboard for language selection."""
     keyboard = telebot.types.InlineKeyboardMarkup()
     keyboard.add(
         telebot.types.InlineKeyboardButton("English 🇬🇧", callback_data="set_lang_en"),
@@ -153,28 +156,30 @@ def get_language_keyboard():
     return keyboard
 
 def get_main_options_keyboard(lang):
+    """Returns an inline keyboard for main bot options based on language."""
     keyboard = telebot.types.InlineKeyboardMarkup()
     if lang == 'en':
         keyboard.add(
             telebot.types.InlineKeyboardButton("📚 Learn (Text)", callback_data="set_mode_learn")
         )
         keyboard.add(
-            telebot.types.InlineKeyboardButton("⚙️ Setup Trade (Image)", callback_data="command_setup"), # Link to command
-            telebot.types.InlineKeyboardButton("📈 General Analysis (Image)", callback_data="command_analyze") # Link to command
+            telebot.types.InlineKeyboardButton("⚙️ Setup Trade (Image)", callback_data="command_setup"),
+            telebot.types.InlineKeyboardButton("📈 General Analysis (Image)", callback_data="command_analyze")
         )
     else: # id
         keyboard.add(
             telebot.types.InlineKeyboardButton("📚 Belajar (Teks)", callback_data="set_mode_learn")
         )
         keyboard.add(
-            telebot.types.InlineKeyboardButton("⚙️ Setup Trading (Gambar)", callback_data="command_setup"), # Link to command
-            telebot.types.InlineKeyboardButton("📈 Analisis Umum (Gambar)", callback_data="command_analyze") # Link to command
+            telebot.types.InlineKeyboardButton("⚙️ Setup Trading (Gambar)", callback_data="command_setup"),
+            telebot.types.InlineKeyboardButton("📈 Analisis Umum (Gambar)", callback_data="command_analyze")
         )
     return keyboard
 
 # ========== COMMAND HANDLERS ==========
-@bot.message_handler(commands=['start', 'menu']) # Add /menu for easy access
+@bot.message_handler(commands=['start', 'menu'])
 def send_welcome_or_menu(message):
+    """Handles /start and /menu commands, setting up user data if new."""
     chat_id = str(message.chat.id)
 
     if chat_id not in user_data:
@@ -190,9 +195,9 @@ def send_welcome_or_menu(message):
         menu_text = "What would you like to do?" if lang == 'en' else "Apa yang ingin Anda lakukan?"
         bot.send_message(chat_id, menu_text, reply_markup=get_main_options_keyboard(lang))
 
-
 @bot.message_handler(commands=['language'])
 def send_language_menu(message):
+    """Sends the language selection menu."""
     chat_id = str(message.chat.id)
     if chat_id not in user_data:
         user_data[chat_id] = {'lang': 'en', 'mode': 'learn'}
@@ -202,13 +207,13 @@ def send_language_menu(message):
     text = "Please choose your language:" if lang == 'en' else "Silakan pilih bahasa Anda:"
     bot.send_message(chat_id, text, reply_markup=get_language_keyboard())
 
-# --- New/Modified Command Handlers for Analysis Modes ---
 @bot.message_handler(commands=['setup'])
 def set_mode_setup_command(message):
+    """Sets the bot mode to 'setup' for trade signal generation."""
     chat_id = str(message.chat.id)
     if chat_id not in user_data:
-        user_data[chat_id] = {'lang': 'en', 'mode': 'learn'} # Initialize if new user
-    user_data[chat_id]['mode'] = 'setup' # Set the mode
+        user_data[chat_id] = {'lang': 'en', 'mode': 'learn'}
+    user_data[chat_id]['mode'] = 'setup'
     save_user_data(user_data)
     lang = user_data[chat_id]['lang']
     msg = "You are now in **Setup Trade** mode. Send me a chart image for signal generation!" if lang == 'en' \
@@ -217,10 +222,11 @@ def set_mode_setup_command(message):
 
 @bot.message_handler(commands=['analyze'])
 def set_mode_general_analyze_command(message):
+    """Sets the bot mode to 'general_analyze' for general chart analysis."""
     chat_id = str(message.chat.id)
     if chat_id not in user_data:
-        user_data[chat_id] = {'lang': 'en', 'mode': 'learn'} # Initialize if new user
-    user_data[chat_id]['mode'] = 'general_analyze' # Set the mode
+        user_data[chat_id] = {'lang': 'en', 'mode': 'learn'}
+    user_data[chat_id]['mode'] = 'general_analyze'
     save_user_data(user_data)
     lang = user_data[chat_id]['lang']
     msg = "You are now in **General Analysis** mode. Send me a chart image for market movement analysis!" if lang == 'en' \
@@ -230,6 +236,7 @@ def set_mode_general_analyze_command(message):
 # ========== CALLBACK QUERY HANDLERS ==========
 @bot.callback_query_handler(func=lambda call: call.data.startswith('set_lang_'))
 def set_language_callback(call):
+    """Handles language selection from inline keyboard."""
     chat_id = str(call.message.chat.id)
     lang = call.data.split('_')[2]
     user_data[chat_id]['lang'] = lang
@@ -237,14 +244,13 @@ def set_language_callback(call):
 
     bot.edit_message_text(chat_id=chat_id, message_id=call.message.message_id,
                           text="Language set to English." if lang == 'en' else "Bahasa diatur ke Bahasa Indonesia.")
-    # Show main options after language is set
-    send_welcome_or_menu(call.message) # Reuse the /menu function to show options
-
+    send_welcome_or_menu(call.message) # Show main options after language is set
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('set_mode_'))
-def set_mode_callback(call): # This only handles 'learn' now
+def set_mode_callback(call):
+    """Handles mode selection (currently only 'learn') from inline keyboard."""
     chat_id = str(call.message.chat.id)
-    mode = call.data.split('_')[2] # Should only be 'learn'
+    mode = call.data.split('_')[2]
     user_data[chat_id]['mode'] = mode
     save_user_data(user_data)
     lang = user_data[chat_id]['lang']
@@ -252,18 +258,18 @@ def set_mode_callback(call): # This only handles 'learn' now
     if mode == 'learn':
         msg = "You are now in **Learn** mode. Send me your text queries about trading!" if lang == 'en' \
               else "Anda sekarang dalam mode **Belajar**. Kirimkan pertanyaan teks Anda tentang trading!"
-    else: # Fallback for unexpected modes, though logic should prevent this
+    else:
         msg = "Invalid mode selected." if lang == 'en' else "Mode tidak valid."
     
     bot.edit_message_text(chat_id=chat_id, message_id=call.message.message_id, text=msg)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('command_'))
 def handle_command_buttons(call):
+    """Handles command buttons (e.g., 'setup', 'analyze') by simulating commands."""
     chat_id = str(call.message.chat.id)
-    command_name = call.data.split('_')[1] # 'setup' or 'analyze'
+    command_name = call.data.split('_')[1]
 
-    # Simulate typing the command, so the actual command handlers are triggered
-    # This also allows for easier extension if more commands are added later
+    # Simulate typing the command to trigger actual command handlers
     if command_name == 'setup':
         call.message.text = '/setup'
         set_mode_setup_command(call.message)
@@ -273,10 +279,10 @@ def handle_command_buttons(call):
     
     bot.answer_callback_query(call.id) # Acknowledge the button press
 
-
 # ========== TEXT HANDLER ==========
 @bot.message_handler(func=lambda m: m.content_type == 'text')
 def handle_text(message):
+    """Handles text messages, primarily in 'learn' mode using Groq."""
     chat_id = str(message.chat.id)
     chat_type = message.chat.type
     bot_username = bot.get_me().username.lower()
@@ -290,6 +296,7 @@ def handle_text(message):
         bot.reply_to(message, "Please switch to **Learn** mode to send text queries. Use /menu to change." if lang == 'en' else "Mohon beralih ke mode **Belajar** untuk mengirim pertanyaan teks. Gunakan /menu untuk mengubahnya.")
         return
 
+    # Handle group chats: only respond if mentioned or replied to
     if chat_type in ["group", "supergroup"]:
         is_mentioned = any(
             entity.type == "mention" and message.text[entity.offset:entity.offset + entity.length].lower() == f"@{bot_username}"
@@ -322,10 +329,11 @@ def handle_text(message):
 # ========== IMAGE HANDLER ==========
 @bot.message_handler(content_types=["photo"])
 def handle_photo(message):
+    """Handles photo messages for chart analysis using Google Gemini."""
     chat_id = str(message.chat.id)
     user_settings = user_data.get(chat_id, {'lang': 'en', 'mode': 'learn'})
     lang = user_settings['lang']
-    current_mode = user_settings['mode'] # Use the mode set by /setup or /analyze
+    current_mode = user_settings['mode']
 
     # Check if in a valid analysis mode for images
     if current_mode not in ['setup', 'general_analyze']:
@@ -335,13 +343,15 @@ def handle_photo(message):
     # Indicate that the bot is processing the image
     processing_message = bot.reply_to(message, "⏳ Processing image... This may take a moment." if lang == 'en' else "⏳ Memproses gambar... Ini mungkin memakan waktu sebentar.")
 
+    temp_file_path = None
+    uploaded_file = None
+
     try:
         caption = message.caption or ("Analyze this image?" if lang == 'en' else "Analisis Gambar Ini?")
         file_id = message.photo[-1].file_id
         file_info = bot.get_file(file_id)
         
         # Download the file directly from Telegram's servers
-        # This is generally more reliable than forming a URL and letting Gemini fetch it
         downloaded_file = bot.download_file(file_info.file_path)
 
         # Save the file temporarily to upload to Gemini File API
@@ -350,20 +360,24 @@ def handle_photo(message):
             f.write(downloaded_file)
 
         # Upload the image to Gemini File API
-        # Using a direct file upload is more robust for Gemini's vision models
         uploaded_file = genai.upload_file(path=temp_file_path, display_name=f"chart_{file_id}")
         
-        # Wait for the file to be active (ready for use)
-        # This is important for larger files or slower connections
+        # Check whether the file is ready to be used.
+        # This is the recommended way to wait for file processing
         print(f"Uploaded file '{uploaded_file.display_name}' ({uploaded_file.uri}). Waiting for it to become active...")
-        genai.wait_for_files([uploaded_file])
-        print(f"File {uploaded_file.display_name} is active.")
+        while uploaded_file.state.name == "PROCESSING":
+            print('.', end='', flush=True) # Print dot and flush output immediately
+            time.sleep(1) # Wait for 1 second before re-checking
+            uploaded_file = genai.get_file(uploaded_file.name) # Get updated file status
+
+        if uploaded_file.state.name == "FAILED":
+            raise ValueError("File processing failed on Gemini side. Please try again.")
+        
+        print(f"\nFile {uploaded_file.display_name} is active.")
 
         # Determine the appropriate instruction text based on the current_mode
-        # System prompt for Gemini models is usually passed directly in the content array
-        # or as a "preamble" in certain models. For 1.5 Flash, it's typically part of the content.
+        base_prompt = BASE_SYSTEM_PROMPT_EN if lang == 'en' else BASE_SYSTEM_PROMPT_ID
         
-        # Adjusting the instruction based on the mode
         if current_mode == 'setup':
             instruction_text = SETUP_INSTRUCTION_EN if lang == 'en' else SETUP_INSTRUCTION_ID
         elif current_mode == 'general_analyze':
@@ -372,12 +386,11 @@ def handle_photo(message):
             instruction_text = "Please analyze this image." if lang == 'en' else "Tolong analisis gambar ini."
         
         # Combine base system prompt with specific instruction for image analysis
-        # For Gemini, it's often more effective to put the full instruction in the user prompt.
-        full_instruction_text = (BASE_SYSTEM_PROMPT_EN if lang == 'en' else BASE_SYSTEM_PROMPT_ID) + "\n\n" + instruction_text
+        full_instruction_text = base_prompt + "\n\n" + instruction_text
 
         contents = [
-            full_instruction_text, # The instruction text
-            uploaded_file # The uploaded image file
+            full_instruction_text,
+            uploaded_file
         ]
 
         # Generate content using the Gemini vision model
@@ -391,11 +404,6 @@ def handle_photo(message):
             }
         )
         
-        # Delete the temporary file and the uploaded file from Gemini File API
-        os.remove(temp_file_path)
-        genai.delete_file(uploaded_file.name)
-        print(f"Cleaned up temporary file {temp_file_path} and Gemini uploaded file {uploaded_file.name}.")
-
         raw_reply = gemini_response.text
 
         reply_text = ""
@@ -449,21 +457,31 @@ def handle_photo(message):
         bot.edit_message_text(chat_id=chat_id, message_id=processing_message.message_id, text=reply_text)
 
     except Exception as e:
-        bot.edit_message_text(chat_id=chat_id, message_id=processing_message.message_id, text=f"❌ Error analyzing image:\n{str(e)}" if lang == 'en' else f"❌ Error saat analisis gambar:\n{str(e)}")
-        # Ensure temporary file is removed even on error
-        if 'temp_file_path' in locals() and os.path.exists(temp_file_path):
+        error_msg = f"❌ Error analyzing image:\n{str(e)}" if lang == 'en' else f"❌ Error saat analisis gambar:\n{str(e)}"
+        bot.edit_message_text(chat_id=chat_id, message_id=processing_message.message_id, text=error_msg)
+    finally:
+        # Clean up temporary files
+        if temp_file_path and os.path.exists(temp_file_path):
             os.remove(temp_file_path)
-        if 'uploaded_file' in locals() and uploaded_file.name:
-            genai.delete_file(uploaded_file.name)
+            print(f"Cleaned up temporary file {temp_file_path}.")
+        # Delete the uploaded file from Gemini File API
+        if uploaded_file and uploaded_file.name:
+            try:
+                genai.delete_file(uploaded_file.name)
+                print(f"Cleaned up Gemini uploaded file {uploaded_file.name}.")
+            except Exception as delete_error:
+                print(f"Warning: Failed to delete Gemini file {uploaded_file.name}: {delete_error}")
 
 
 # ========= FLASK ROUTES =========
 @app.route("/")
 def home():
+    """Basic home route to indicate the bot is running."""
     return "🤖 Bot is running via webhook!", 200
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
+    """Webhook endpoint for Telegram updates."""
     if request.headers.get('content-type') == 'application/json':
         json_string = request.get_data().decode("utf-8")
         update = telebot.types.Update.de_json(json_string)
@@ -473,8 +491,9 @@ def webhook():
 
 # ========= RUN FLASK + SET WEBHOOK =========
 if __name__ == "__main__":
-    bot.remove_webhook()
-    bot.set_webhook(url=WEBHOOK_URL)
+    bot.remove_webhook() # Ensure no previous webhooks are active
+    bot.set_webhook(url=WEBHOOK_URL) # Set the new webhook
 
     port = int(os.environ.get("PORT", 5000))
+    print(f"Starting Flask app on port {port} with webhook URL: {WEBHOOK_URL}")
     app.run(host="0.0.0.0", port=port)
