@@ -1,5 +1,6 @@
 pyTelegramBotAPI==4.23.0
 requests
 python-dotenv
-groq  # <== tambahkan ini
+groq
 flask
+google-generativeai
