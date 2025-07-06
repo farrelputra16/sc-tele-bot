@@ -9,8 +9,8 @@ from groq import Groq
 # Load .env
 load_dotenv()
 
-BOT_TOKEN = os.getenv("BOT_TOKEN") or "8172517978:AAHkn3i8f_uYVb8GkN-kMB5GkNuLtNSFkn0"
-GROQ_API_KEY = os.getenv("GROQ_API_KEY") or "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"
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 RENDER_EXTERNAL_HOSTNAME = os.getenv("RENDER_EXTERNAL_HOSTNAME")
 
 if not RENDER_EXTERNAL_HOSTNAME:
