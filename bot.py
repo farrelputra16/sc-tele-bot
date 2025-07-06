@@ -7,7 +7,7 @@ import telebot
 from flask import Flask, request
 from groq import Groq
 import google.generativeai as genai
-from google.generativeai.types import HarmCategory, HarmBlockThreshold, GenerationConfig # Import tambahan ini
+from google.generativeai.types import HarmCategory, HarmBlockThreshold # Import tambahan ini
 
 # Load .env
 load_dotenv()
@@ -90,14 +90,15 @@ BASE_SYSTEM_PROMPT_EN = (
     "If a user asks something outside the trading context, answer briefly or redirect them back to the trading topic."
 )
 
+# --- REVISED SETUP_INSTRUCTION_ID for SINGLE SIGNAL ---
 SETUP_INSTRUCTION_ID = (
-    "Tolong analisis gambar chart ini dengan cermat dan identifikasi potensi peluang trading. "
-    "Fokus pada identifikasi setup yang presisi berdasarkan Smart Money Concept (SMC) dan analisis teknikal lanjutan. "
-    "Berikan detail sinyal dalam format JSON murni dan pastikan akurasi tinggi. "
+    "Tolong analisis gambar chart ini dengan cermat dan identifikasi **HANYA SATU potensi peluang trading terbaik yang memiliki probabilitas tertinggi dan Risk:Reward (RR) paling optimal**. " # TEKANKAN 'HANYA SATU' dan 'terbaik'
+    "Prioritaskan setup yang paling jelas dan akurat berdasarkan Smart Money Concept (SMC) dan analisis teknikal lanjutan. "
+    "Berikan detail sinyal ini dalam **format JSON murni berupa SATU OBJEK TUNGGAL**. " # TEKANKAN 'SATU OBJEK TUNGGAL'
     "Pastikan semua nilai (Pair, Position, Entry, TP, SL, RR) relevan dan realistis sesuai dengan chart. "
     "Jika suatu nilai tidak dapat ditentukan secara spesifik dari gambar, gunakan 'N/A'. "
     "Hitung Risk:Reward (RR) dengan presisi dua desimal."
-    "Output harus dimulai dan diakhiri dengan blok JSON, tanpa teks pengantar, penutup, atau penjelasan lainnya di luar JSON. "
+    "Output harus dimulai dan diakhiri dengan **SATU BLOK JSON TUNGGAL**, tanpa teks pengantar, penutup, atau penjelasan lainnya di luar JSON. "
     "Contoh format:\n"
     "```json\n"
     "{\n"
@@ -114,14 +115,15 @@ SETUP_INSTRUCTION_ID = (
     "**Penting:** Analisis ini murni bersifat edukatif dan teknikal, berdasarkan data chart yang Anda berikan. Ini BUKAN nasihat keuangan atau ajakan untuk berinvestasi. Keputusan trading sepenuhnya tanggung jawab pengguna."
 )
 
+# --- REVISED SETUP_INSTRUCTION_EN for SINGLE SIGNAL ---
 SETUP_INSTRUCTION_EN = (
-    "Please meticulously analyze this chart image and identify potential trading opportunities. "
-    "Focus on precise setup identification based on Smart Money Concept (SMC) and advanced technical analysis. "
-    "Provide signal details in pure JSON format and ensure high accuracy. "
+    "Please meticulously analyze this chart image and identify **ONLY ONE potential trading opportunity that has the highest probability and the most optimal Risk:Reward (RR)**. " # EMPHASIZE 'ONLY ONE' and 'best'
+    "Prioritize the clearest and most accurate setup based on Smart Money Concept (SMC) and advanced technical analysis. "
+    "Provide this signal's details in **pure JSON format as a SINGLE OBJECT**. " # EMPHASIZE 'SINGLE OBJECT'
     "Ensure all values (Pair, Position, Entry, TP, SL, RR) are relevant and realistic according to the chart. "
     "If a value cannot be specifically determined from the image, use 'N/A'. "
     "Calculate Risk:Reward (RR) with two decimal precision. "
-    "The output must start and end with a pure JSON block, with no introductory, concluding, or other explanatory text outside the JSON. "
+    "The output must start and end with a **SINGLE JSON BLOCK**, with no introductory, concluding, or other explanatory text outside the JSON. "
     "Example format:\n"
     "```json\n"
     "{\n"
@@ -396,8 +398,14 @@ def handle_photo(message):
             uploaded_file
         ]
 
+        # Configure generation settings to constrain output
+        # max_output_tokens is key here to limit verbosity and multiple signals
+        generation_config = genai.types.GenerationConfig(
+            temperature=0.7,
+            max_output_tokens=300 # Reduced to encourage concise, single-signal output
+        )
+
         # Generate content using the Gemini vision model with explicit safety settings
-        # Using HarmCategory and HarmBlockThreshold for clarity and granular control
         gemini_response = vision_model.generate_content(
             contents=contents,
             safety_settings={
@@ -405,17 +413,18 @@ def handle_photo(message):
                 HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
                 HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
                 HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE
-            }
+            },
+            generation_config=generation_config # Add the generation config here
         )
         
-        # Check if response candidates exist, otherwise it was blocked
+        raw_reply = ""
+        # Check if any candidate was returned, if not, it was blocked
         if not gemini_response.candidates:
             block_reason_feedback = "UNKNOWN_REASON"
             if gemini_response.prompt_feedback and gemini_response.prompt_feedback.block_reason:
                 block_reason_feedback = gemini_response.prompt_feedback.block_reason.name
             
-            # More specific message for dangerous content blocks
-            if block_reason_feedback == "SAFETY": # 'SAFETY' is often the overarching block reason
+            if block_reason_feedback == "SAFETY":
                 raise genai.types.BlockedPromptException(
                     "Prompt blocked due to content policy. This often occurs if the chart or request implies risky financial behavior. Please try a different chart or a more general/educational request." if lang == 'en' else
                     "Permintaan diblokir karena kebijakan konten. Ini sering terjadi jika chart atau permintaan menyiratkan perilaku keuangan berisiko. Silakan coba chart yang berbeda atau permintaan yang lebih umum/edukatif."
@@ -425,56 +434,87 @@ def handle_photo(message):
                     f"Gemini API did not return any candidates and was blocked for reason: {block_reason_feedback}." if lang == 'en' else
                     f"API Gemini tidak mengembalikan hasil dan diblokir karena alasan: {block_reason_feedback}."
                 )
-                
-        raw_reply = gemini_response.text
+        else:
+            raw_reply = gemini_response.text # Get the text from the successful candidate
 
         reply_text = ""
         if current_mode == 'setup':
-            # Gemini might return markdown JSON, so we need to extract it
-            json_match = re.search(r'```json\s*(\{.*\})\s*```', raw_reply, re.DOTALL)
-            if not json_match:
-                json_match = re.search(r'\{.*\}', raw_reply, re.DOTALL) # Fallback if no markdown
+            # Updated regex to specifically look for a single JSON object or an array of objects
+            # and clean up surrounding non-JSON characters like `⁠ `
+            
+            # First, try to find a JSON code block (```json {...} ``` or ```json [{...},{...}] ```)
+            json_match = re.search(r'```json\s*([\[\{].*?[\]\}])\s*```', raw_reply, re.DOTALL)
+            json_string = None
 
             if json_match:
-                json_string = json_match.group(1) if json_match.group(0).startswith('```json') else json_match.group(0)
-                try:
-                    setup_data = json.loads(json_string)
-                    if lang == 'en':
-                        reply_text = (
-                            f"📊 **Trade Setup:**\n"
-                            f"➡️ **Pair:** `{setup_data.get('Pair', 'N/A')}`\n"
-                            f"➡️ **Position:** `{setup_data.get('Position', 'N/A')}`\n"
-                            f"➡️ **Entry:** `{setup_data.get('Entry', 'N/A')}`\n"
-                            f"➡️ **TP:** `{setup_data.get('TP', 'N/A')}`\n"
-                            f"➡️ **SL:** `{setup_data.get('SL', 'N/A')}`\n"
-                            f"➡️ **RR:** `{setup_data.get('RR', 'N/A')}`\n"
-                            f"➡️ **Reason:** {setup_data.get('Reason', 'N/A')}\n\n"
-                            f"_Important: This analysis is for educational purposes only and not financial advice._"
-                        )
-                    else: # id
-                        reply_text = (
-                            f"📊 **Setup Trading:**\n"
-                            f"➡️ **Pair:** `{setup_data.get('Pair', 'N/A')}`\n"
-                            f"➡️ **Position:** `{setup_data.get('Position', 'N/A')}`\n"
-                            f"➡️ **Entry:** `{setup_data.get('Entry', 'N/A')}`\n"
-                            f"➡️ **TP:** `{setup_data.get('TP', 'N/A')}`\n"
-                            f"➡️ **SL:** `{setup_data.get('SL', 'N/A')}`\n"
-                            f"➡️ **RR:** `{setup_data.get('RR', 'N/A')}`\n"
-                            f"➡️ **Alasan:** {setup_data.get('Reason', 'N/A')}\n\n"
-                            f"_Penting: Analisis ini murni bersifat edukatif dan bukan nasihat keuangan._"
-                        )
-                except json.JSONDecodeError:
-                    reply_text = (f"❌ Error: Could not parse setup data. "
-                                  f"The AI's response was not valid JSON. "
-                                  f"Raw response:\n`{raw_reply}`") if lang == 'en' \
-                                 else (f"❌ Error: Tidak dapat mengurai data setup. "
-                                       f"Respon AI bukan JSON yang valid. "
-                                       f"Respon mentah:\n`{raw_reply}`")
+                json_string = json_match.group(1).strip()
             else:
-                reply_text = (f"❌ Error: Could not find JSON in the AI's response for trade setup. "
-                              f"Raw response:\n`{raw_reply}`") if lang == 'en' \
-                             else (f"❌ Error: Tidak dapat menemukan JSON dalam respon AI untuk setup trading. "
-                                   f"Respon mentah:\n`{raw_reply}`")
+                # Fallback: if no markdown block, try to find a direct JSON object or array
+                clean_raw_reply = re.sub(r'^[^{[]*|[^}\]]*$', '', raw_reply.strip())
+                if clean_raw_reply.startswith('{') and clean_raw_reply.endswith('}'):
+                    json_string = clean_raw_reply
+                elif clean_raw_reply.startswith('[') and clean_raw_reply.endswith(']'):
+                    json_string = clean_raw_reply
+                else:
+                    # Final attempt: try to extract just the first object if it's not a proper array or single object
+                    # This handles the "{obj1},{obj2}" case by trying to parse each individually
+                    potential_objects = re.findall(r'\{[^}]*?\}', clean_raw_reply, re.DOTALL)
+                    if potential_objects:
+                        json_string = potential_objects[0] # Take the first detected object
+
+
+            setup_data = None
+            if json_string:
+                try:
+                    parsed_json = json.loads(json_string)
+                    if isinstance(parsed_json, list): # If it's an array, take the first item
+                        if parsed_json:
+                            setup_data = parsed_json[0]
+                        else:
+                            raise json.JSONDecodeError("JSON array is empty.", json_string, 0)
+                    elif isinstance(parsed_json, dict): # If it's a single object
+                        setup_data = parsed_json
+                    else:
+                        raise json.JSONDecodeError("Parsed JSON is not an object or array.", json_string, 0)
+
+                except json.JSONDecodeError as e:
+                    reply_text = (f"❌ Error: Could not parse setup data. "
+                                  f"The AI's response was not valid JSON ({e}). "
+                                  f"Raw response extracted:\n`{json_string}`") if lang == 'en' \
+                                 else (f"❌ Error: Tidak dapat mengurai data setup. "
+                                       f"Respon AI bukan JSON yang valid ({e}). "
+                                       f"Respon mentah yang diekstrak:\n`{json_string}`")
+            else:
+                reply_text = (f"❌ Error: Could not find valid JSON in the AI's response for trade setup. "
+                              f"Raw AI response:\n`{raw_reply}`") if lang == 'en' \
+                             else (f"❌ Error: Tidak dapat menemukan JSON yang valid dalam respon AI untuk setup trading. "
+                                   f"Respon AI mentah:\n`{raw_reply}`")
+            
+            if setup_data:
+                if lang == 'en':
+                    reply_text = (
+                        f"📊 **Trade Setup:**\n"
+                        f"➡️ **Pair:** `{setup_data.get('Pair', 'N/A')}`\n"
+                        f"➡️ **Position:** `{setup_data.get('Position', 'N/A')}`\n"
+                        f"➡️ **Entry:** `{setup_data.get('Entry', 'N/A')}`\n"
+                        f"➡️ **TP:** `{setup_data.get('TP', 'N/A')}`\n"
+                        f"➡️ **SL:** `{setup_data.get('SL', 'N/A')}`\n"
+                        f"➡️ **RR:** `{setup_data.get('RR', 'N/A')}`\n"
+                        f"➡️ **Reason:** {setup_data.get('Reason', 'N/A')}\n\n"
+                        f"_Important: This analysis is for educational purposes only and not financial advice._"
+                    )
+                else: # id
+                    reply_text = (
+                        f"📊 **Setup Trading:**\n"
+                        f"➡️ **Pair:** `{setup_data.get('Pair', 'N/A')}`\n"
+                        f"➡️ **Position:** `{setup_data.get('Position', 'N/A')}`\n"
+                        f"➡️ **Entry:** `{setup_data.get('Entry', 'N/A')}`\n"
+                        f"➡️ **TP:** `{setup_data.get('TP', 'N/A')}`\n"
+                        f"➡️ **SL:** `{setup_data.get('SL', 'N/A')}`\n"
+                        f"➡️ **RR:** `{setup_data.get('RR', 'N/A')}`\n"
+                        f"➡️ **Alasan:** {setup_data.get('Reason', 'N/A')}\n\n"
+                        f"_Penting: Analisis ini murni bersifat edukatif dan bukan nasihat keuangan._"
+                    )
         else: # general_analyze
             reply_text = raw_reply + (
                 "\n\n_Important: This analysis is for educational purposes only and not financial advice._" if lang == 'en' else "\n\n_Penting: Analisis ini murni bersifat edukatif dan bukan nasihat keuangan._"
@@ -483,20 +523,17 @@ def handle_photo(message):
         bot.edit_message_text(chat_id=chat_id, message_id=processing_message.message_id, text=reply_text)
 
     # Specific error handling for Gemini API content blocking
-    # This exception is raised when the prompt itself (input) is blocked
     except genai.types.BlockedPromptException as e:
         block_reason = "Unknown"
         if e.response and e.response.prompt_feedback and e.response.prompt_feedback.block_reason:
             block_reason = e.response.prompt_feedback.block_reason.name
         
-        detailed_msg_en = f"The input (chart or caption) was blocked due to '{block_reason}' content policy. Please try a different chart or modify your request to be less explicit about potential financial risks."
+        detailed_msg_en = f"The input (chart or caption) was blocked due to '{block_reason}' content policy. This often occurs if the chart or request implies risky financial behavior. Please try a different chart or a more general/educational request."
         detailed_msg_id = f"Input (chart atau caption) diblokir karena kebijakan konten '{block_reason}'. Silakan coba chart yang berbeda atau modifikasi permintaan Anda agar tidak terlalu eksplisit tentang potensi risiko keuangan."
         
         final_error_msg = detailed_msg_en if lang == 'en' else detailed_msg_id
         bot.edit_message_text(chat_id=chat_id, message_id=processing_message.message_id, text=f"❌ Analysis blocked by AI:\n{final_error_msg}")
 
-    # This exception is raised when the model generates a response, but it's blocked.
-    # This is often where 'dangerous_content' shows up for the *output*.
     except genai.types.StopCandidateException as e:
         block_reason_category = "UNKNOWN"
         if e.response and e.response.safety_ratings:
@@ -511,7 +548,6 @@ def handle_photo(message):
         final_error_msg = detailed_msg_en if lang == 'en' else detailed_msg_id
         bot.edit_message_text(chat_id=chat_id, message_id=processing_message.message_id, text=f"❌ AI response blocked:\n{final_error_msg}")
 
-    # Catch any other unexpected errors
     except Exception as e:
         error_msg = f"❌ An unexpected error occurred during image analysis:\n{str(e)}" if lang == 'en' else f"❌ Terjadi error tak terduga saat analisis gambar:\n{str(e)}"
         bot.edit_message_text(chat_id=chat_id, message_id=processing_message.message_id, text=error_msg)
