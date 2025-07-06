@@ -90,7 +90,6 @@ BASE_SYSTEM_PROMPT_EN = (
     "If a user asks something outside the trading context, answer briefly or redirect them back to the trading topic."
 )
 
-# --- NEW SETUP_INSTRUCTION for SWING TRADE ---
 SETUP_SWING_INSTRUCTION_ID = (
     "Tolong analisis gambar chart ini dengan cermat dan identifikasi **HANYA SATU potensi peluang SWING trading terbaik yang memiliki probabilitas tertinggi dan Risk:Reward (RR) paling optimal**. "
     "Fokus pada timeframe H4 atau H1. Cari setup berdasarkan Smart Money Concept (SMC) dan analisis teknikal lanjutan yang cocok untuk posisi yang dipegang beberapa jam hingga beberapa hari. "
@@ -139,7 +138,6 @@ SETUP_SWING_INSTRUCTION_EN = (
     "**Important:** This analysis is purely educational and technical, based on the chart data you provide. It is NOT financial advice or an inducement to invest. Trading decisions are solely the user's responsibility."
 )
 
-# --- NEW SETUP_INSTRUCTION for SCALP TRADE ---
 SETUP_SCALP_INSTRUCTION_ID = (
     "Tolong analisis gambar chart ini dengan cermat dan identifikasi **HANYA SATU potensi peluang SCALP trading terbaik yang memiliki probabilitas tertinggi dan Risk:Reward (RR) paling optimal**. "
     "Fokus pada timeframe M30, M15, atau M5. Cari setup berdasarkan Smart Money Concept (SMC) dan analisis teknikal lanjutan yang cocok untuk posisi yang dipegang menit hingga beberapa jam. "
@@ -188,7 +186,6 @@ SETUP_SCALP_INSTRUCTION_EN = (
     "**Important:** This analysis is purely educational and technical, based on the chart data you provide. It is NOT financial advice or an inducement to invest. Trading decisions are solely the user's responsibility."
 )
 
-# --- REVISED ANALYZE_INSTRUCTION (Straight to the Point) ---
 ANALYZE_INSTRUCTION_ID = (
     "Tolong analisis gambar chart ini secara ringkas dan langsung ke inti. "
     "Identifikasi area-area penting seperti order block, liquidity pool, FVG, support/resistance, atau trendline. "
@@ -218,44 +215,41 @@ def get_language_keyboard():
     return keyboard
 
 def get_main_options_keyboard(lang):
-    """Returns an inline keyboard for main bot options based on language."""
+    """
+    Returns an inline keyboard for main bot options based on language.
+    Now directs users to use direct commands for analysis modes.
+    """
     keyboard = telebot.types.InlineKeyboardMarkup()
     if lang == 'en':
-        keyboard.add(
-            telebot.types.InlineKeyboardButton("📚 Learn (Text)", callback_data="set_mode_learn")
-        )
-        # Nested keyboard for Setup Trade
-        keyboard.add(telebot.types.InlineKeyboardButton("⚙️ Setup Trade (Image)", callback_data="show_setup_options_en"))
-        keyboard.add(
-            telebot.types.InlineKeyboardButton("📈 General Analysis (Image)", callback_data="command_analyze")
-        )
+        keyboard.add(telebot.types.InlineKeyboardButton("📚 Learn (Text)", callback_data="command_learn"))
+        keyboard.add(telebot.types.InlineKeyboardButton("📊 Swing Trade (Image)", callback_data="command_swing"))
+        keyboard.add(telebot.types.InlineKeyboardButton("🔪 Scalp Trade (Image)", callback_data="command_scalp"))
+        keyboard.add(telebot.types.InlineKeyboardButton("📈 General Analysis (Image)", callback_data="command_analyze_chart"))
     else: # id
-        keyboard.add(
-            telebot.types.InlineKeyboardButton("📚 Belajar (Teks)", callback_data="set_mode_learn")
-        )
-        # Nested keyboard for Setup Trading
-        keyboard.add(telebot.types.InlineKeyboardButton("⚙️ Setup Trading (Gambar)", callback_data="show_setup_options_id"))
-        keyboard.add(
-            telebot.types.InlineKeyboardButton("📈 Analisis Umum (Gambar)", callback_data="command_analyze")
-        )
+        keyboard.add(telebot.types.InlineKeyboardButton("📚 Belajar (Teks)", callback_data="command_learn"))
+        keyboard.add(telebot.types.InlineKeyboardButton("📊 Swing Trading (Gambar)", callback_data="command_swing"))
+        keyboard.add(telebot.types.InlineKeyboardButton("🔪 Scalp Trading (Gambar)", callback_data="command_scalp"))
+        keyboard.add(telebot.types.InlineKeyboardButton("📈 Analisis Umum (Gambar)", callback_data="command_analyze_chart"))
     return keyboard
 
-def get_setup_options_keyboard(lang):
-    """Returns an inline keyboard for Setup Trade sub-options (Swing/Scalp)."""
-    keyboard = telebot.types.InlineKeyboardMarkup()
-    if lang == 'en':
-        keyboard.add(
-            telebot.types.InlineKeyboardButton("📊 Swing Trade (H4/H1)", callback_data="set_mode_setup_swing"),
-            telebot.types.InlineKeyboardButton("🔪 Scalp Trade (M30/M15/M5)", callback_data="set_mode_setup_scalp")
-        )
-        keyboard.add(telebot.types.InlineKeyboardButton("⬅️ Back to Main Menu", callback_data="back_to_main_menu"))
-    else: # id
-        keyboard.add(
-            telebot.types.InlineKeyboardButton("📊 Swing Trading (H4/H1)", callback_data="set_mode_setup_swing"),
-            telebot.types.InlineKeyboardButton("🔪 Scalp Trading (M30/M15/M5)", callback_data="set_mode_setup_scalp")
-        )
-        keyboard.add(telebot.types.InlineKeyboardButton("⬅️ Kembali ke Menu Utama", callback_data="back_to_main_menu"))
-    return keyboard
+# (The get_setup_options_keyboard is no longer needed if we use direct commands from main menu)
+# (So, I'm removing it from the thought process, but leaving it as a comment below if you ever wanted to revert)
+# def get_setup_options_keyboard(lang):
+#     """Returns an inline keyboard for Setup Trade sub-options (Swing/Scalp)."""
+#     keyboard = telebot.types.InlineKeyboardMarkup()
+#     if lang == 'en':
+#         keyboard.add(
+#             telebot.types.InlineKeyboardButton("📊 Swing Trade (H4/H1)", callback_data="set_mode_setup_swing"),
+#             telebot.types.InlineKeyboardButton("🔪 Scalp Trade (M30/M15/M5)", callback_data="set_mode_setup_scalp")
+#         )
+#         keyboard.add(telebot.types.InlineKeyboardButton("⬅️ Back to Main Menu", callback_data="back_to_main_menu"))
+#     else: # id
+#         keyboard.add(
+#             telebot.types.InlineKeyboardButton("📊 Swing Trading (H4/H1)", callback_data="set_mode_setup_swing"),
+#             telebot.types.InlineKeyboardButton("🔪 Scalp Trading (M30/M15/M5)", callback_data="set_mode_setup_scalp")
+#         )
+#         keyboard.add(telebot.types.InlineKeyboardButton("⬅️ Kembali ke Menu Utama", callback_data="back_to_main_menu"))
+#     return keyboard
 
 # ========== COMMAND HANDLERS ==========
 @bot.message_handler(commands=['start', 'menu'])
@@ -288,13 +282,35 @@ def send_language_menu(message):
     text = "Please choose your language:" if lang == 'en' else "Silakan pilih bahasa Anda:"
     bot.send_message(chat_id, text, reply_markup=get_language_keyboard())
 
-# --- Modified Command Handlers for Analysis Modes ---
-# These handlers now primarily set the 'mode' and display further options if needed.
-@bot.message_handler(commands=['analyze'])
+# --- NEW DIRECT COMMAND HANDLERS for analysis modes ---
+@bot.message_handler(commands=['swing'])
+def set_mode_swing_command(message):
+    chat_id = str(message.chat.id)
+    user_data[chat_id] = user_data.get(chat_id, {'lang': 'en', 'mode': 'learn', 'sub_mode': None})
+    user_data[chat_id]['mode'] = 'setup'
+    user_data[chat_id]['sub_mode'] = 'swing'
+    save_user_data(user_data)
+    lang = user_data[chat_id]['lang']
+    msg = "You are now in **Swing Trade** mode. Send a chart image (H4/H1 preferred) for signal generation!" if lang == 'en' \
+          else "Anda sekarang dalam mode **Swing Trading**. Kirim gambar chart (disarankan H4/H1) untuk menghasilkan sinyal!"
+    bot.send_message(chat_id, msg)
+
+@bot.message_handler(commands=['scalp'])
+def set_mode_scalp_command(message):
+    chat_id = str(message.chat.id)
+    user_data[chat_id] = user_data.get(chat_id, {'lang': 'en', 'mode': 'learn', 'sub_mode': None})
+    user_data[chat_id]['mode'] = 'setup'
+    user_data[chat_id]['sub_mode'] = 'scalp'
+    save_user_data(user_data)
+    lang = user_data[chat_id]['lang']
+    msg = "You are now in **Scalp Trade** mode. Send a chart image (M30/M15/M5 preferred) for signal generation!" if lang == 'en' \
+          else "Anda sekarang dalam mode **Scalp Trading**. Kirim gambar chart (disarankan M30/M15/M5) untuk menghasilkan sinyal!"
+    bot.send_message(chat_id, msg)
+
+@bot.message_handler(commands=['analyze']) # Renamed from /analyze to avoid conflict with `general_analyze` mode logic
 def set_mode_general_analyze_command(message):
     chat_id = str(message.chat.id)
-    if chat_id not in user_data:
-        user_data[chat_id] = {'lang': 'en', 'mode': 'learn', 'sub_mode': None}
+    user_data[chat_id] = user_data.get(chat_id, {'lang': 'en', 'mode': 'learn', 'sub_mode': None})
     user_data[chat_id]['mode'] = 'general_analyze'
     user_data[chat_id]['sub_mode'] = None # Clear sub-mode
     save_user_data(user_data)
@@ -303,8 +319,18 @@ def set_mode_general_analyze_command(message):
           else "Anda sekarang dalam mode **Analisis Umum**. Kirimkan gambar chart untuk analisis pergerakan pasar!"
     bot.send_message(chat_id, msg)
 
-# Removed /setup command handler, as it's now handled by inline button callback.
-# The actual mode setting (setup_swing / setup_scalp) is done via callback.
+@bot.message_handler(commands=['learn'])
+def set_mode_learn_command(message):
+    chat_id = str(message.chat.id)
+    user_data[chat_id] = user_data.get(chat_id, {'lang': 'en', 'mode': 'learn', 'sub_mode': None})
+    user_data[chat_id]['mode'] = 'learn'
+    user_data[chat_id]['sub_mode'] = None # Clear sub-mode
+    save_user_data(user_data)
+    lang = user_data[chat_id]['lang']
+    msg = "You are now in **Learn** mode. Send me your text queries about trading!" if lang == 'en' \
+          else "Anda sekarang dalam mode **Belajar**. Kirimkan pertanyaan teks Anda tentang trading!"
+    bot.send_message(chat_id, msg)
+
 
 # ========== CALLBACK QUERY HANDLERS ==========
 @bot.callback_query_handler(func=lambda call: call.data.startswith('set_lang_'))
@@ -318,68 +344,31 @@ def set_language_callback(call):
                           text="Language set to English." if lang == 'en' else "Bahasa diatur ke Bahasa Indonesia.")
     send_welcome_or_menu(call.message) # Show main options after language is set
 
-@bot.callback_query_handler(func=lambda call: call.data.startswith('set_mode_'))
-def set_mode_callback(call): # This now handles 'learn', 'setup_swing', 'setup_scalp'
-    chat_id = str(call.message.chat.id)
-    parts = call.data.split('_')
-    mode = parts[2] # 'learn'
-    
-    if len(parts) > 3: # Check for sub-mode, e.g., 'set_mode_setup_swing'
-        user_data[chat_id]['mode'] = 'setup' # Parent mode for swing/scalp
-        user_data[chat_id]['sub_mode'] = parts[3] # 'swing' or 'scalp'
-    else:
-        user_data[chat_id]['mode'] = mode
-        user_data[chat_id]['sub_mode'] = None
-
-    save_user_data(user_data)
-    lang = user_data[chat_id]['lang']
-
-    msg = ""
-    if user_data[chat_id]['mode'] == 'learn':
-        msg = "You are now in **Learn** mode. Send me your text queries about trading!" if lang == 'en' \
-              else "Anda sekarang dalam mode **Belajar**. Kirimkan pertanyaan teks Anda tentang trading!"
-    elif user_data[chat_id]['mode'] == 'setup':
-        if user_data[chat_id]['sub_mode'] == 'swing':
-            msg = "You are now in **Swing Trade** mode. Send a chart image (H4/H1 preferred) for signal generation!" if lang == 'en' \
-                  else "Anda sekarang dalam mode **Swing Trading**. Kirim gambar chart (disarankan H4/H1) untuk menghasilkan sinyal!"
-        elif user_data[chat_id]['sub_mode'] == 'scalp':
-            msg = "You are now in **Scalp Trade** mode. Send a chart image (M30/M15/M5 preferred) for signal generation!" if lang == 'en' \
-                  else "Anda sekarang dalam mode **Scalp Trading**. Kirim gambar chart (disarankan M30/M15/M5) untuk menghasilkan sinyal!"
-    else:
-        msg = "Invalid mode selected." if lang == 'en' else "Mode tidak valid."
-    
-    bot.edit_message_text(chat_id=chat_id, message_id=call.message.message_id, text=msg)
-    bot.answer_callback_query(call.id) # Acknowledge the button press
-
 @bot.callback_query_handler(func=lambda call: call.data.startswith('command_'))
 def handle_command_buttons(call):
+    """Handles command buttons by simulating direct command calls."""
     chat_id = str(call.message.chat.id)
-    command_name = call.data.split('_')[1] # 'analyze'
+    command_name = call.data.split('_')[1] # e.g., 'learn', 'swing', 'scalp', 'analyze_chart'
 
-    if command_name == 'analyze':
-        call.message.text = '/analyze'
+    # Simulate typing the command to trigger actual command handlers
+    if command_name == 'learn':
+        call.message.text = '/learn'
+        set_mode_learn_command(call.message)
+    elif command_name == 'swing':
+        call.message.text = '/swing'
+        set_mode_swing_command(call.message)
+    elif command_name == 'scalp':
+        call.message.text = '/scalp'
+        set_mode_scalp_command(call.message)
+    elif command_name == 'analyze_chart':
+        call.message.text = '/analyze_chart'
         set_mode_general_analyze_command(call.message)
     
     bot.answer_callback_query(call.id) # Acknowledge the button press
 
-@bot.callback_query_handler(func=lambda call: call.data.startswith('show_setup_options_'))
-def show_setup_options(call):
-    chat_id = str(call.message.chat.id)
-    lang = call.data.split('_')[3] # 'en' or 'id'
-    
-    bot.edit_message_text(chat_id=chat_id, message_id=call.message.message_id,
-                          text="Choose your trade style:" if lang == 'en' else "Pilih gaya trading Anda:",
-                          reply_markup=get_setup_options_keyboard(lang))
-    bot.answer_callback_query(call.id)
-
-@bot.callback_query_handler(func=lambda call: call.data == 'back_to_main_menu')
-def back_to_main_menu_callback(call):
-    chat_id = str(call.message.chat.id)
-    lang = user_data.get(chat_id, {'lang': 'en'})['lang']
-    menu_text = "What would you like to do?" if lang == 'en' else "Apa yang ingin Anda lakukan?"
-    bot.edit_message_text(chat_id=chat_id, message_id=call.message.message_id,
-                          text=menu_text, reply_markup=get_main_options_keyboard(lang))
-    bot.answer_callback_query(call.id)
+# (Removed `set_mode_callback`, `show_setup_options`, and `back_to_main_menu_callback`
+# because we are now using direct commands from the main menu.)
+# (The `set_mode_callback` was handling 'set_mode_setup_swing' etc. which are now direct commands.)
 
 # ========== TEXT HANDLER ==========
 @bot.message_handler(func=lambda m: m.content_type == 'text')
@@ -435,13 +424,12 @@ def handle_photo(message):
     current_sub_mode = user_settings['sub_mode'] # Get sub-mode
 
     # Check if in a valid analysis mode for images
-    if current_mode not in ['setup', 'general_analyze']:
-        bot.reply_to(message, "Please select an analysis mode first (Setup Trade or General Analysis). Use /menu to choose." if lang == 'en' else "Mohon pilih mode analisis terlebih dahulu (Setup Trading atau Analisis Umum). Gunakan /menu untuk memilih.")
+    # If mode is 'setup', current_sub_mode *must* be 'swing' or 'scalp'
+    if current_mode == 'setup' and current_sub_mode not in ['swing', 'scalp']:
+        bot.reply_to(message, "Please choose a trading style first (Swing or Scalp) using the menu or commands like /swing or /scalp." if lang == 'en' else "Mohon pilih gaya trading terlebih dahulu (Swing atau Scalp) menggunakan menu atau perintah seperti /swing atau /scalp.")
         return
-    
-    # If in 'setup' mode, but no sub_mode is chosen yet, ask them to choose
-    if current_mode == 'setup' and not current_sub_mode:
-        bot.reply_to(message, "Please choose a trading style first (Swing or Scalp) for signal generation. Use the 'Setup Trade' button in /menu." if lang == 'en' else "Mohon pilih gaya trading terlebih dahulu (Swing atau Scalp) untuk menghasilkan sinyal. Gunakan tombol 'Setup Trading' di /menu.")
+    elif current_mode not in ['setup', 'general_analyze']: # For other invalid modes
+        bot.reply_to(message, "Please select an analysis mode first (Swing, Scalp, or General Analysis) using /menu or commands." if lang == 'en' else "Mohon pilih mode analisis terlebih dahulu (Swing, Scalp, atau Analisis Umum) menggunakan /menu atau perintah.")
         return
 
     # Indicate that the bot is processing the image
@@ -481,13 +469,11 @@ def handle_photo(message):
                 full_instruction_text = SETUP_SWING_INSTRUCTION_EN if lang == 'en' else SETUP_SWING_INSTRUCTION_ID
             elif current_sub_mode == 'scalp':
                 full_instruction_text = SETUP_SCALP_INSTRUCTION_EN if lang == 'en' else SETUP_SCALP_INSTRUCTION_ID
-            else: # Should not happen if logic is correct, but as a fallback
-                full_instruction_text = SETUP_SWING_INSTRUCTION_EN if lang == 'en' else SETUP_SWING_INSTRUCTION_ID
+            # No 'else' needed here, as the initial check `if current_mode == 'setup' and current_sub_mode not in ['swing', 'scalp']`
+            # would have caught it.
         elif current_mode == 'general_analyze':
             full_instruction_text = ANALYZE_INSTRUCTION_EN if lang == 'en' else ANALYZE_INSTRUCTION_ID
-        else: # Fallback
-            full_instruction_text = "Please analyze this image with high accuracy, focusing on technical aspects. This is for educational purposes only and not financial advice." if lang == 'en' else "Tolong analisis gambar ini dengan akurasi tinggi, fokus pada aspek teknikal. Ini hanya untuk tujuan edukasi dan bukan nasihat keuangan."
-
+        
         contents = [
             full_instruction_text,
             uploaded_file
@@ -545,7 +531,7 @@ def handle_photo(message):
                 else:
                     potential_objects = re.findall(r'\{[^}]*?\}', clean_raw_reply, re.DOTALL)
                     if potential_objects:
-                        json_string = potential_objects[0] # Take the first detected object
+                        json_string = potential_objects[0]
 
 
             setup_data = None
@@ -579,7 +565,7 @@ def handle_photo(message):
                 # Bold the section title for better readability
                 if lang == 'en':
                     reply_text = (
-                        f"📊 **Trade Setup ({current_sub_mode.capitalize()}):**\n" # Add sub-mode to title
+                        f"📊 **Trade Setup ({current_sub_mode.capitalize()}):**\n"
                         f"➡️ **Pair:** `{setup_data.get('Pair', 'N/A')}`\n"
                         f"➡️ **Position:** `{setup_data.get('Position', 'N/A')}`\n"
                         f"➡️ **Entry:** `{setup_data.get('Entry', 'N/A')}`\n"
@@ -591,7 +577,7 @@ def handle_photo(message):
                     )
                 else: # id
                     reply_text = (
-                        f"📊 **Setup Trading ({current_sub_mode.capitalize()}):**\n" # Add sub-mode to title
+                        f"📊 **Setup Trading ({current_sub_mode.capitalize()}):**\n"
                         f"➡️ **Pair:** `{setup_data.get('Pair', 'N/A')}`\n"
                         f"➡️ **Position:** `{setup_data.get('Position', 'N/A')}`\n"
                         f"➡️ **Entry:** `{setup_data.get('Entry', 'N/A')}`\n"
